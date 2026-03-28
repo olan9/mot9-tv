@@ -20,12 +20,11 @@ android {
 
     defaultConfig {
         applicationId "com.m9.mot9tv"
-        minSdk 21
+        minSdk 19
         targetSdk 35
         versionCode 1
         versionName "1.0.0"
-        renderscriptTargetApi 21
-        renderscriptSupportModeEnabled true
+        multiDexEnabled true
     }
 
     buildTypes {
