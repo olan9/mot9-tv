@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'utils/theme.dart';
 import 'screens/login_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Future.delayed(Duration.zero);
   runApp(const Mot9App());
 }
 
