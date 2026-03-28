@@ -11,7 +11,8 @@
         android:label="mot⁹"
         android:name="${applicationName}"
         android:theme="@style/LaunchTheme"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:hardwareAccelerated="false">
 
         <activity
             android:name=".MainActivity"
@@ -19,9 +20,8 @@
             android:launchMode="singleTop"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize"
-            android:screenOrientation="landscape">
+            android:hardwareAccelerated="false"
+            android:windowSoftInputMode="adjustResize">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
