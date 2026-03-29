@@ -28,6 +28,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    _urlFocus.addListener(() => setState(() {}));
+    _userFocus.addListener(() => setState(() {}));
+    _passFocus.addListener(() => setState(() {}));
+    _btnFocus.addListener(() => setState(() {}));
     _loadSaved();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FocusScope.of(context).requestFocus(_urlFocus);
@@ -82,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: const Color(0xFF141414),
       body: Row(
         children: [
-          // Left side - branding
+          // Left - branding
           Expanded(
             flex: 2,
             child: Container(
@@ -101,38 +105,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       text: const TextSpan(children: [
                         TextSpan(
                           text: 'mot',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 64,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -2,
-                          ),
+                          style: TextStyle(color: Colors.white, fontSize: 64, fontWeight: FontWeight.bold, letterSpacing: -2),
                         ),
                         TextSpan(
                           text: '⁹',
-                          style: TextStyle(
-                            color: Color(0xFFE50914),
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: TextStyle(color: Color(0xFFE50914), fontSize: 48, fontWeight: FontWeight.bold),
                         ),
                       ]),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'IPTV Player',
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 18,
-                        letterSpacing: 4,
-                      ),
-                    ),
+                    const Text('IPTV Player', style: TextStyle(color: Colors.white38, fontSize: 18, letterSpacing: 4)),
                   ],
                 ),
               ),
             ),
           ),
-          // Right side - form
+          // Right - form
           Expanded(
             flex: 3,
             child: Container(
@@ -142,19 +130,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'تسجيل الدخول',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  const Text('تسجيل الدخول', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  const Text(
-                    'أدخل بيانات Xtream الخاصة بك',
-                    style: TextStyle(color: Colors.white54, fontSize: 15),
-                  ),
+                  const Text('أدخل بيانات Xtream الخاصة بك', style: TextStyle(color: Colors.white54, fontSize: 15)),
                   const SizedBox(height: 40),
                   _buildField('رابط الخادم', 'http://example.com:8080', _urlCtrl, _urlFocus, _userFocus),
                   const SizedBox(height: 20),
@@ -176,111 +154,66 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildField(
-    String label,
-    String hint,
-    TextEditingController ctrl,
-    FocusNode focusNode,
-    FocusNode nextFocus, {
-    bool obscure = false,
-  }) {
+  Widget _buildField(String label, String hint, TextEditingController ctrl, FocusNode focusNode, FocusNode nextFocus, {bool obscure = false}) {
+    final focused = focusNode.hasFocus;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 13,
-            letterSpacing: 0.5,
-          ),
-        ),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13, letterSpacing: 0.5)),
         const SizedBox(height: 8),
-        ValueListenableBuilder<bool>(
-          valueListenable: focusNode,
-          builder: (context, _, __) {
-            final focused = focusNode.hasFocus;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: focused ? const Color(0xFFE50914) : Colors.transparent,
-                  width: 2,
-                ),
-                boxShadow: focused
-                    ? [const BoxShadow(color: Color(0x44E50914), blurRadius: 8, spreadRadius: 1)]
-                    : [],
-              ),
-              child: TextField(
-                controller: ctrl,
-                focusNode: focusNode,
-                obscureText: obscure,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-                decoration: InputDecoration(
-                  hintText: hint,
-                  hintStyle: const TextStyle(color: Colors.white24),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                ),
-                onSubmitted: (_) => FocusScope.of(context).requestFocus(nextFocus),
-              ),
-            );
-          },
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A2A),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: focused ? const Color(0xFFE50914) : Colors.transparent, width: 2),
+            boxShadow: focused ? [const BoxShadow(color: Color(0x44E50914), blurRadius: 8, spreadRadius: 1)] : [],
+          ),
+          child: TextField(
+            controller: ctrl,
+            focusNode: focusNode,
+            obscureText: obscure,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: Colors.white24),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            ),
+            onSubmitted: (_) => FocusScope.of(context).requestFocus(nextFocus),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildLoginBtn() {
+    final focused = _btnFocus.hasFocus;
     return Focus(
       focusNode: _btnFocus,
       onKeyEvent: (_, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+        if (event is KeyDownEvent && (event.logicalKey == LogicalKeyboardKey.select || event.logicalKey == LogicalKeyboardKey.enter)) {
           if (!_loading) _login();
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       },
-      child: ValueListenableBuilder<bool>(
-        valueListenable: _btnFocus,
-        builder: (context, _, __) {
-          final focused = _btnFocus.hasFocus;
-          return GestureDetector(
-            onTap: _loading ? null : _login,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: double.infinity,
-              height: 54,
-              decoration: BoxDecoration(
-                color: focused ? const Color(0xFFB20710) : const Color(0xFFE50914),
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: focused
-                    ? [const BoxShadow(color: Color(0x88E50914), blurRadius: 16, spreadRadius: 2)]
-                    : [],
-              ),
-              alignment: Alignment.center,
-              child: _loading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                    )
-                  : const Text(
-                      'دخول',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-            ),
-          );
-        },
+      child: GestureDetector(
+        onTap: _loading ? null : _login,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: double.infinity,
+          height: 54,
+          decoration: BoxDecoration(
+            color: focused ? const Color(0xFFB20710) : const Color(0xFFE50914),
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: focused ? [const BoxShadow(color: Color(0x88E50914), blurRadius: 16, spreadRadius: 2)] : [],
+          ),
+          alignment: Alignment.center,
+          child: _loading
+              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+              : const Text('دخول', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        ),
       ),
     );
   }
