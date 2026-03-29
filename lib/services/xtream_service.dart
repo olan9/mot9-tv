@@ -14,36 +14,60 @@ class XtreamService {
       if (r.statusCode != 200) return false;
       final j = jsonDecode(r.body);
       return j['user_info'] != null;
-    } catch (_) {
-      return false;
-    }
+    } catch (_) { return false; }
   }
 
   Future<List<Category>> getLiveCategories() async {
-    final r = await http.get(Uri.parse('$_base&action=get_live_categories'));
-    final list = jsonDecode(r.body) as List;
-    return list.map((e) => Category.fromJson(e)).toList();
+    try {
+      final r = await http.get(Uri.parse('$_base&action=get_live_categories'));
+      final list = jsonDecode(r.body) as List;
+      return list.map((e) => Category.fromJson(e)).toList();
+    } catch (_) { return []; }
   }
 
   Future<List<LiveChannel>> getLiveStreams({String? categoryId}) async {
-    var url = '$_base&action=get_live_streams';
-    if (categoryId != null) url += '&category_id=$categoryId';
-    final r = await http.get(Uri.parse(url));
-    final list = jsonDecode(r.body) as List;
-    return list.map((e) => LiveChannel.fromJson(e)).toList();
+    try {
+      var url = '$_base&action=get_live_streams';
+      if (categoryId != null) url += '&category_id=$categoryId';
+      final r = await http.get(Uri.parse(url));
+      final list = jsonDecode(r.body) as List;
+      return list.map((e) => LiveChannel.fromJson(e)).toList();
+    } catch (_) { return []; }
   }
 
   Future<List<Category>> getVodCategories() async {
-    final r = await http.get(Uri.parse('$_base&action=get_vod_categories'));
-    final list = jsonDecode(r.body) as List;
-    return list.map((e) => Category.fromJson(e)).toList();
+    try {
+      final r = await http.get(Uri.parse('$_base&action=get_vod_categories'));
+      final list = jsonDecode(r.body) as List;
+      return list.map((e) => Category.fromJson(e)).toList();
+    } catch (_) { return []; }
   }
 
   Future<List<VodItem>> getVodStreams({String? categoryId}) async {
-    var url = '$_base&action=get_vod_streams';
-    if (categoryId != null) url += '&category_id=$categoryId';
-    final r = await http.get(Uri.parse(url));
-    final list = jsonDecode(r.body) as List;
-    return list.map((e) => VodItem.fromJson(e)).toList();
+    try {
+      var url = '$_base&action=get_vod_streams';
+      if (categoryId != null) url += '&category_id=$categoryId';
+      final r = await http.get(Uri.parse(url));
+      final list = jsonDecode(r.body) as List;
+      return list.map((e) => VodItem.fromJson(e)).toList();
+    } catch (_) { return []; }
+  }
+
+  Future<List<Category>> getSeriesCategories() async {
+    try {
+      final r = await http.get(Uri.parse('$_base&action=get_series_categories'));
+      final list = jsonDecode(r.body) as List;
+      return list.map((e) => Category.fromJson(e)).toList();
+    } catch (_) { return []; }
+  }
+
+  Future<List<SeriesItem>> getSeries({String? categoryId}) async {
+    try {
+      var url = '$_base&action=get_series';
+      if (categoryId != null) url += '&category_id=$categoryId';
+      final r = await http.get(Uri.parse(url));
+      final list = jsonDecode(r.body) as List;
+      return list.map((e) => SeriesItem.fromJson(e)).toList();
+    } catch (_) { return []; }
   }
 }
