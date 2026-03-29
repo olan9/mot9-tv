@@ -4,53 +4,40 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/models.dart';
 import '../services/xtream_service.dart';
 import '../utils/theme.dart';
+import 'player_screen.dart';
 
 class LiveScreen extends StatefulWidget {
   final XtreamService service;
   final XtreamCredentials creds;
-  const LiveScreen({super.key, required this.service, required this.creds});
+  final List<LiveChannel> channels;
+  final List<Category> categories;
+
+  const LiveScreen({super.key, required this.service, required this.creds, required this.channels, required this.categories});
 
   @override
   State<LiveScreen> createState() => _LiveScreenState();
 }
 
 class _LiveScreenState extends State<LiveScreen> {
-  List<Category> _categories = [];
-  List<LiveChannel> _channels = [];
   int _selectedCat = 0;
-  bool _loading = true;
+  late List<Category> _cats;
 
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final cats = await widget.service.getLiveCategories();
-    final channels = await widget.service.getLiveStreams();
-    if (mounted) {
-      setState(() {
-        _categories = [Category(id: '', name: 'الكل'), ...cats];
-        _channels = channels;
-        _loading = false;
-      });
-    }
+    _cats = [Category(id: '', name: 'الكل'), ...widget.categories];
   }
 
   List<LiveChannel> get _filtered {
-    final cat = _categories.isEmpty ? null : _categories[_selectedCat];
-    if (cat == null || cat.id.isEmpty) return _channels;
-    return _channels.where((c) => c.categoryId == cat.id).toList();
+    final cat = _cats.isEmpty ? null : _cats[_selectedCat];
+    if (cat == null || cat.id.isEmpty) return widget.channels;
+    return widget.channels.where((c) => c.categoryId == cat.id).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: Mot9Theme.accentRed));
-
     return Row(
       children: [
-        // Category sidebar
         Container(
           width: 220,
           color: const Color(0xFF0D0D0D),
@@ -63,9 +50,9 @@ class _LiveScreenState extends State<LiveScreen> {
               ),
               Expanded(
                 child: ListView.builder(
-                  itemCount: _categories.length,
-                  itemBuilder: (ctx, i) => _CatItem(
-                    label: _categories[i].name,
+                  itemCount: _cats.length,
+                  itemBuilder: (_, i) => _CatItem(
+                    label: _cats[i].name,
                     selected: _selectedCat == i,
                     onTap: () => setState(() => _selectedCat = i),
                   ),
@@ -74,7 +61,6 @@ class _LiveScreenState extends State<LiveScreen> {
             ],
           ),
         ),
-        // Channel grid
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.all(24),
@@ -85,15 +71,12 @@ class _LiveScreenState extends State<LiveScreen> {
               childAspectRatio: 1,
             ),
             itemCount: _filtered.length,
-            itemBuilder: (ctx, i) {
-              final ch = _filtered[i];
-              return _ChannelCard(
-                channel: ch,
-                onTap: () {
-                  // TODO: Open player
-                },
-              );
-            },
+            itemBuilder: (_, i) => _ChannelCard(
+              channel: _filtered[i],
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => PlayerScreen(title: _filtered[i].name, url: _filtered[i].streamUrl(widget.creds)),
+              )),
+            ),
           ),
         ),
       ],
@@ -113,13 +96,23 @@ class _CatItem extends StatefulWidget {
 
 class _CatItemState extends State<_CatItem> {
   bool _focused = false;
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() { _focus.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     return Focus(
-      onFocusChange: (f) => setState(() => _focused = f),
-      onKeyEvent: (_, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.select) {
+      focusNode: _focus,
+      onKeyEvent: (_, e) {
+        if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) {
           widget.onTap();
           return KeyEventResult.handled;
         }
@@ -132,19 +125,13 @@ class _CatItemState extends State<_CatItem> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
           decoration: BoxDecoration(
             color: widget.selected ? Mot9Theme.accentRed.withOpacity(0.15) : (_focused ? Colors.white10 : Colors.transparent),
-            border: Border(left: BorderSide(
-              color: widget.selected ? Mot9Theme.accentRed : Colors.transparent,
-              width: 3,
-            )),
+            border: Border(left: BorderSide(color: widget.selected ? Mot9Theme.accentRed : Colors.transparent, width: 3)),
           ),
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              color: widget.selected ? Colors.white : (_focused ? Colors.white : Colors.white60),
-              fontSize: 14,
-              fontWeight: widget.selected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
+          child: Text(widget.label, style: TextStyle(
+            color: widget.selected ? Colors.white : (_focused ? Colors.white : Colors.white60),
+            fontSize: 14,
+            fontWeight: widget.selected ? FontWeight.bold : FontWeight.normal,
+          )),
         ),
       ),
     );
@@ -162,13 +149,23 @@ class _ChannelCard extends StatefulWidget {
 
 class _ChannelCardState extends State<_ChannelCard> {
   bool _focused = false;
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() { _focus.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     return Focus(
-      onFocusChange: (f) => setState(() => _focused = f),
-      onKeyEvent: (_, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.select) {
+      focusNode: _focus,
+      onKeyEvent: (_, e) {
+        if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) {
           widget.onTap();
           return KeyEventResult.handled;
         }
@@ -192,24 +189,17 @@ class _ChannelCardState extends State<_ChannelCard> {
               children: [
                 Expanded(
                   child: widget.channel.logo != null
-                      ? CachedNetworkImage(
-                          imageUrl: widget.channel.logo!,
-                          fit: BoxFit.contain,
-                          errorWidget: (_, __, ___) => const Icon(Icons.tv, color: Colors.white24, size: 32),
-                        )
+                      ? CachedNetworkImage(imageUrl: widget.channel.logo!, fit: BoxFit.contain,
+                          errorWidget: (_, __, ___) => const Icon(Icons.tv, color: Colors.white24, size: 32))
                       : const Icon(Icons.tv, color: Colors.white24, size: 32),
                 ),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                   color: _focused ? Mot9Theme.accentRed : const Color(0xFF1A1A1A),
-                  child: Text(
-                    widget.channel.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
-                  ),
+                  child: Text(widget.channel.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500)),
                 ),
               ],
             ),
