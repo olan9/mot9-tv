@@ -300,7 +300,7 @@ class _DynamicHero extends StatelessWidget {
                   if (overview.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(overview,
-                      style: const TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, height: 1.5),
+                      style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, height: 1.5),
                       maxLines: 2, overflow: TextOverflow.ellipsis,
                     ),
                   ],
