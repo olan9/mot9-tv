@@ -20,11 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passCtrl = TextEditingController();
   bool _loading = false;
   String? _error;
-
-  final _urlFocus = FocusNode();
-  final _userFocus = FocusNode();
-  final _passFocus = FocusNode();
-  final _btnFocus = FocusNode();
+  int _focused = 0;
 
   @override
   void initState() {
@@ -37,9 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final saved = prefs.getString('credentials');
     if (saved != null) {
       final creds = XtreamCredentials.fromJson(jsonDecode(saved));
-      if (mounted) {
-        _navigateHome(creds);
-      }
+      if (mounted) _navigateHome(creds);
     }
   }
 
@@ -68,140 +62,103 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Background gradient
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF0A0A0A), Color(0xFF1A0A0A), Color(0xFF0A0A14)],
-              ),
-            ),
-          ),
-          // Logo top-left
-          Positioned(
-            top: 40, left: 60,
-            child: _buildLogo(size: 36),
-          ),
-          // Form center
-          Center(
-            child: Container(
-              width: 480,
-              padding: const EdgeInsets.all(48),
-              decoration: BoxDecoration(
-                color: const Color(0xFF141414).withOpacity(0.92),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('تسجيل الدخول', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  const Text('أدخل بيانات Xtream الخاصة بك', style: TextStyle(color: Mot9Theme.textSecondary, fontSize: 14)),
-                  const SizedBox(height: 32),
-                  _buildField('رابط الخادم', 'http://example.com:8080', _urlCtrl, _urlFocus, _userFocus),
-                  const SizedBox(height: 16),
-                  _buildField('اسم المستخدم', 'username', _userCtrl, _userFocus, _passFocus),
-                  const SizedBox(height: 16),
-                  _buildField('كلمة المرور', '••••••••', _passCtrl, _passFocus, _btnFocus, obscure: true),
-                  if (_error != null) ...[
-                    const SizedBox(height: 16),
-                    Text(_error!, style: const TextStyle(color: Mot9Theme.accentRed, fontSize: 13)),
-                  ],
-                  const SizedBox(height: 28),
-                  _buildLoginBtn(),
+      backgroundColor: Mot9Theme.bgColor,
+      body: KeyboardListener(
+        focusNode: FocusNode(),
+        autofocus: true,
+        onKeyEvent: (event) {
+          if (event is KeyDownEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              setState(() => _focused = (_focused + 1).clamp(0, 3));
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              setState(() => _focused = (_focused - 1).clamp(0, 3));
+            } else if (event.logicalKey == LogicalKeyboardKey.select && _focused == 3) {
+              _login();
+            }
+          }
+        },
+        child: Center(
+          child: SizedBox(
+            width: 500,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(text: const TextSpan(children: [
+                  TextSpan(text: 'mot', style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                  TextSpan(text: '⁹', style: TextStyle(color: Mot9Theme.accentRed, fontSize: 27, fontWeight: FontWeight.bold)),
+                ])),
+                const SizedBox(height: 32),
+                const Text('تسجيل الدخول', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text('أدخل بيانات Xtream', style: TextStyle(color: Mot9Theme.textSecondary)),
+                const SizedBox(height: 32),
+                _buildField('رابط الخادم', _urlCtrl, 0),
+                const SizedBox(height: 16),
+                _buildField('اسم المستخدم', _userCtrl, 1),
+                const SizedBox(height: 16),
+                _buildField('كلمة المرور', _passCtrl, 2, obscure: true),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(_error!, style: const TextStyle(color: Mot9Theme.accentRed)),
                 ],
-              ),
+                const SizedBox(height: 24),
+                _buildBtn(),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildLogo({double size = 28}) {
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(text: 'mot', style: TextStyle(color: Colors.white, fontSize: size, fontWeight: FontWeight.bold, letterSpacing: -1)),
-          TextSpan(text: '⁹', style: TextStyle(color: Mot9Theme.accentRed, fontSize: size * 0.75, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildField(String label, String hint, TextEditingController ctrl, FocusNode focus, FocusNode nextFocus, {bool obscure = false}) {
-    return Focus(
-      focusNode: focus,
-      child: Builder(builder: (ctx) {
-        final isFocused = Focus.of(ctx).hasFocus;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(color: Mot9Theme.textSecondary, fontSize: 12, letterSpacing: 0.5)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: ctrl,
-              focusNode: focus,
-              obscureText: obscure,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(color: Color(0xFF555555)),
-                filled: true,
-                fillColor: const Color(0xFF333333),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Mot9Theme.accentRed, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-              onSubmitted: (_) => FocusScope.of(context).requestFocus(nextFocus),
-            ),
-          ],
-        );
-      }),
-    );
-  }
-
-  Widget _buildLoginBtn() {
-    return Focus(
-      focusNode: _btnFocus,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.select) {
-          _login();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Builder(builder: (ctx) {
-        final focused = Focus.of(ctx).hasFocus;
-        return GestureDetector(
-          onTap: _loading ? null : _login,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: double.infinity,
-            height: 50,
-            decoration: BoxDecoration(
-              color: focused ? Mot9Theme.accentRedDark : Mot9Theme.accentRed,
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: focused ? [const BoxShadow(color: Mot9Theme.accentRed, blurRadius: 12, spreadRadius: 1)] : [],
-            ),
-            alignment: Alignment.center,
-            child: _loading
-                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                : const Text('دخول', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+  Widget _buildField(String label, TextEditingController ctrl, int index, {bool obscure = false}) {
+    final isFocused = _focused == index;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Mot9Theme.textSecondary, fontSize: 12)),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF333333),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: isFocused ? Mot9Theme.accentRed : Colors.transparent, width: 2),
           ),
-        );
-      }),
+          child: TextField(
+            controller: ctrl,
+            obscureText: obscure,
+            autofocus: index == 0,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+            onTap: () => setState(() => _focused = index),
+            onSubmitted: (_) => setState(() => _focused = index + 1),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBtn() {
+    final isFocused = _focused == 3;
+    return GestureDetector(
+      onTap: _loading ? null : _login,
+      child: Container(
+        width: double.infinity,
+        height: 50,
+        decoration: BoxDecoration(
+          color: isFocused ? Mot9Theme.accentRedDark : Mot9Theme.accentRed,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: isFocused ? [const BoxShadow(color: Mot9Theme.accentRed, blurRadius: 12)] : [],
+        ),
+        alignment: Alignment.center,
+        child: _loading
+            ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+            : const Text('دخول', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+      ),
     );
   }
 }
