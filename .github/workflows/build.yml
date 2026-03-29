@@ -31,11 +31,25 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --split-per-abi
 
-      - name: Upload APK
+      - name: Upload APK ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: mot9-tv-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: mot9-tv-arm64
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          retention-days: 30
+
+      - name: Upload APK ARM
+        uses: actions/upload-artifact@v4
+        with:
+          name: mot9-tv-arm
+          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+          retention-days: 30
+
+      - name: Upload APK x86
+        uses: actions/upload-artifact@v4
+        with:
+          name: mot9-tv-x86
+          path: build/app/outputs/flutter-apk/app-x86-release.apk
           retention-days: 30
