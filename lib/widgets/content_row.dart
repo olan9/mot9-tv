@@ -9,6 +9,7 @@ class ContentRow<T> extends StatelessWidget {
   final String? Function(T) imageBuilder;
   final String Function(T) nameBuilder;
   final void Function(T) onTap;
+  final bool isWide;
 
   const ContentRow({
     super.key,
@@ -17,29 +18,35 @@ class ContentRow<T> extends StatelessWidget {
     required this.imageBuilder,
     required this.nameBuilder,
     required this.onTap,
+    this.isWide = false,
   });
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox();
+    final cardH = isWide ? 120.0 : 170.0;
+    final cardW = isWide ? 200.0 : 130.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(48, 16, 48, 12),
-          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+          child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         ),
         SizedBox(
-          height: 170,
+          height: cardH + 20,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             itemCount: items.length,
-            itemBuilder: (ctx, i) => _ContentCard(
+            itemBuilder: (_, i) => _ContentCard(
               item: items[i],
               image: imageBuilder(items[i]),
               name: nameBuilder(items[i]),
+              width: cardW,
+              height: cardH,
+              isWide: isWide,
               onTap: () => onTap(items[i]),
             ),
           ),
@@ -55,8 +62,11 @@ class _ContentCard<T> extends StatefulWidget {
   final String? image;
   final String name;
   final VoidCallback onTap;
+  final double width;
+  final double height;
+  final bool isWide;
 
-  const _ContentCard({super.key, required this.item, this.image, required this.name, required this.onTap});
+  const _ContentCard({super.key, required this.item, this.image, required this.name, required this.onTap, required this.width, required this.height, required this.isWide});
 
   @override
   State<_ContentCard<T>> createState() => _ContentCardState<T>();
@@ -64,11 +74,21 @@ class _ContentCard<T> extends StatefulWidget {
 
 class _ContentCardState<T> extends State<_ContentCard<T>> {
   bool _focused = false;
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() { _focus.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     return Focus(
-      onFocusChange: (f) => setState(() => _focused = f),
+      focusNode: _focus,
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.select) {
           widget.onTap();
@@ -79,66 +99,45 @@ class _ContentCardState<T> extends State<_ContentCard<T>> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: _focused ? 170 : 155,
-          height: _focused ? 170 : 155,
-          margin: EdgeInsets.symmetric(horizontal: 6, vertical: _focused ? 0 : 8),
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          width: widget.width,
+          height: widget.height,
+          margin: EdgeInsets.symmetric(horizontal: 6, vertical: _focused ? 0 : 10),
           transform: _focused ? (Matrix4.identity()..scale(1.08)) : Matrix4.identity(),
+          transformAlignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: _focused ? Mot9Theme.accentRed : Colors.transparent,
-              width: 2.5,
-            ),
-            boxShadow: _focused
-                ? [const BoxShadow(color: Colors.black54, blurRadius: 20, spreadRadius: 4)]
-                : [],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: _focused ? Mot9Theme.accentRed : Colors.transparent, width: 2.5),
+            boxShadow: _focused ? [const BoxShadow(color: Colors.black54, blurRadius: 20, spreadRadius: 4)] : [],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: BorderRadius.circular(7),
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Image
                 widget.image != null
-                    ? CachedNetworkImage(
-                        imageUrl: widget.image!,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => _Placeholder(name: widget.name),
-                      )
+                    ? CachedNetworkImage(imageUrl: widget.image!, fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => _Placeholder(name: widget.name))
                     : _Placeholder(name: widget.name),
-                // Bottom gradient + name
                 Positioned(
                   bottom: 0, left: 0, right: 0,
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(8, 20, 8, 8),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black87],
-                      ),
-                    ),
-                    child: Text(
-                      widget.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
+                    decoration: const BoxDecoration(gradient: LinearGradient(
+                      begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black87],
+                    )),
+                    child: Text(widget.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                   ),
                 ),
-                // Play icon on focus
                 if (_focused)
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Mot9Theme.accentRed.withOpacity(0.9),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.play_arrow, color: Colors.white, size: 28),
-                    ),
-                  ),
+                  Center(child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Mot9Theme.accentRed.withOpacity(0.9), shape: BoxShape.circle),
+                    child: const Icon(Icons.play_arrow, color: Colors.white, size: 28),
+                  )),
               ],
             ),
           ),
