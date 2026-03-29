@@ -10,7 +10,6 @@ import '../utils/theme.dart';
 import '../widgets/top_nav.dart';
 import '../widgets/tv_hero.dart';
 import '../widgets/tv_row.dart';
-import '../widgets/tv_card.dart';
 import 'detail_screen.dart';
 import 'player_screen.dart';
 import 'live_screen.dart';
@@ -37,7 +36,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // ValueNotifier بدل setState للتاب — أداء أفضل
   final _tabNotifier = ValueNotifier<int>(0);
   late XtreamService _service;
 
@@ -49,7 +47,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Category> _liveCats = [];
   bool _loading = true;
 
-  // Hero — ValueNotifier للأداء
   final _heroVodNotifier = ValueNotifier<VodItem?>(null);
   final _heroTmdbNotifier = ValueNotifier<TmdbMovie?>(null);
   final _heroLoadingNotifier = ValueNotifier<bool>(false);
@@ -91,7 +88,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _liveCats = results[5] as List<Category>;
       _loading = false;
     });
-    // تحميل الهيرو بعد البناء
     SchedulerBinding.instance.addPostFrameCallback((_) => _setInitialHero());
   }
 
@@ -122,33 +118,21 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Mot9Theme.bgColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Mot9Theme.accentRed))
-          : RawKeyboardListener(
-              focusNode: FocusNode(),
-              onKey: (event) {
-                if (event is RawKeyDownEvent) {
-                  if (event.logicalKey == LogicalKeyboardKey.goBack) {
-                    Navigator.maybePop(context);
-                  }
-                }
-              },
-              child: Stack(
-                children: [
-                  // Page content — shifted down by header height
-                  Padding(
-                    padding: const EdgeInsets.only(top: 60),
-                    child: ValueListenableBuilder<int>(
-                      valueListenable: _tabNotifier,
-                      builder: (_, tab, __) => _buildPage(tab),
-                    ),
+          : Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 60),
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: _tabNotifier,
+                    builder: (_, tab, __) => _buildPage(tab),
                   ),
-                  // Fixed TopNav
-                  TopNav(
-                    tabNotifier: _tabNotifier,
-                    onSearch: () {},
-                    onSettings: () {},
-                  ),
-                ],
-              ),
+                ),
+                TopNav(
+                  tabNotifier: _tabNotifier,
+                  onSearch: () {},
+                  onSettings: () {},
+                ),
+              ],
             ),
     );
   }
@@ -222,7 +206,7 @@ class _ForYouPageState extends State<_ForYouPage> {
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        // Hero — يستخدم ValueListenableBuilder فقط يعيد بناء الهيرو
+        // Hero
         ValueListenableBuilder<VodItem?>(
           valueListenable: widget.heroVodNotifier,
           builder: (_, vod, __) => ValueListenableBuilder<TmdbMovie?>(
@@ -233,12 +217,6 @@ class _ForYouPageState extends State<_ForYouPage> {
                 vod: vod,
                 tmdb: tmdb,
                 loading: loading,
-                onPlay: vod == null ? null : () => Navigator.push(context, _fadeRoute(
-                  PlayerScreen(id: vod.id, title: vod.name, url: vod.streamUrl(widget.creds), poster: vod.poster),
-                )),
-                onInfo: vod == null ? null : () => Navigator.push(context, _fadeRoute(
-                  MovieDetailScreen(item: vod, creds: widget.creds),
-                )),
               ),
             ),
           ),
@@ -250,19 +228,17 @@ class _ForYouPageState extends State<_ForYouPage> {
         if (_history.isNotEmpty) ...[
           const Padding(
             padding: EdgeInsets.fromLTRB(24, 8, 24, 10),
-            child: Text('متابعة المشاهدة', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
+            child: Text('متابعة المشاهدة',
+              style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
           ),
           SizedBox(
             height: 96,
-            child: FocusTraversalGroup(
-              policy: WidgetOrderTraversalPolicy(),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: _history.length,
-                itemExtent: 175,
-                itemBuilder: (_, i) => _ContinueCard(entry: _history[i]),
-              ),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              itemCount: _history.length,
+              itemExtent: 175,
+              itemBuilder: (_, i) => _ContinueCard(entry: _history[i]),
             ),
           ),
           const SizedBox(height: 8),
@@ -280,9 +256,13 @@ class _ForYouPageState extends State<_ForYouPage> {
             imageUrl: (v) => v.poster,
             name: (v) => v.name,
             onFocus: widget.onPosterFocus,
-            onTap: (v) => Navigator.push(context, _fadeRoute(MovieDetailScreen(item: v, creds: widget.creds))),
+            onTap: (v) => Navigator.push(context, _fadeRoute(
+              MovieDetailScreen(item: v, creds: widget.creds),
+            )),
             hasMore: all.length > _rowLimit,
-            onMore: () => Navigator.push(context, _fadeRoute(MoreVodScreen(title: cat.name, items: all, creds: widget.creds))),
+            onMore: () => Navigator.push(context, _fadeRoute(
+              MoreVodScreen(title: cat.name, items: all, creds: widget.creds),
+            )),
           );
         }),
 
@@ -310,7 +290,7 @@ class _ForYouPageState extends State<_ForYouPage> {
   }
 }
 
-// =================== CONTINUE WATCHING CARD ===================
+// =================== CONTINUE WATCHING ===================
 
 class _ContinueCard extends StatefulWidget {
   final WatchEntry entry;
@@ -330,13 +310,19 @@ class _ContinueCardState extends State<_ContinueCard> with AutomaticKeepAliveCli
   @override
   void initState() {
     super.initState();
-    _focus.addListener(() {
-      if (_focused != _focus.hasFocus) setState(() => _focused = _focus.hasFocus);
-    });
+    _focus.addListener(_onFocus);
+  }
+
+  void _onFocus() {
+    if (_focused != _focus.hasFocus) setState(() => _focused = _focus.hasFocus);
   }
 
   @override
-  void dispose() { _focus.dispose(); super.dispose(); }
+  void dispose() {
+    _focus.removeListener(_onFocus);
+    _focus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -370,7 +356,8 @@ class _ContinueCardState extends State<_ContinueCard> with AutomaticKeepAliveCli
               borderRadius: BorderRadius.circular(7),
               child: Stack(fit: StackFit.expand, children: [
                 widget.entry.poster != null
-                    ? Image.network(widget.entry.poster!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const ColoredBox(color: Mot9Theme.cardColor))
+                    ? Image.network(widget.entry.poster!, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const ColoredBox(color: Mot9Theme.cardColor))
                     : const ColoredBox(color: Mot9Theme.cardColor),
                 Positioned(bottom: 0, left: 0, right: 0,
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -381,7 +368,7 @@ class _ContinueCardState extends State<_ContinueCard> with AutomaticKeepAliveCli
                         colors: [Colors.transparent, Color(0xE5000000)],
                       )),
                       child: Text(widget.entry.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
                     ),
                     LinearProgressIndicator(
                       value: widget.entry.progress,

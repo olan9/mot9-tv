@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// شريط تنقل علوي ثابت مع ValueNotifier للأداء
 class TopNav extends StatelessWidget {
   final ValueNotifier<int> tabNotifier;
   final VoidCallback onSearch;
@@ -28,36 +27,30 @@ class TopNav extends StatelessWidget {
           colors: [Colors.black.withOpacity(0.95), Colors.transparent],
         ),
       ),
-      child: FocusTraversalGroup(
-        policy: WidgetOrderTraversalPolicy(),
-        child: Row(
-          children: [
-            // Logo
-            const Padding(
-              padding: EdgeInsets.only(right: 24),
-              child: _Logo(),
-            ),
-            // Tabs
-            ValueListenableBuilder<int>(
-              valueListenable: tabNotifier,
-              builder: (_, tab, __) => Row(
-                children: List.generate(
-                  _tabs.length,
-                  (i) => _NavTab(
-                    label: _tabs[i],
-                    selected: tab == i,
-                    onTap: () => tabNotifier.value = i,
-                  ),
+      child: Row(
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(right: 24),
+            child: _Logo(),
+          ),
+          ValueListenableBuilder<int>(
+            valueListenable: tabNotifier,
+            builder: (_, tab, __) => Row(
+              children: List.generate(
+                _tabs.length,
+                (i) => _NavTab(
+                  label: _tabs[i],
+                  selected: tab == i,
+                  onTap: () => tabNotifier.value = i,
                 ),
               ),
             ),
-            const Spacer(),
-            // Icons
-            _NavIcon(icon: Icons.search, onTap: onSearch),
-            const SizedBox(width: 8),
-            _NavIcon(icon: Icons.settings_outlined, onTap: onSettings),
-          ],
-        ),
+          ),
+          const Spacer(),
+          _NavIcon(icon: Icons.search, onTap: onSearch),
+          const SizedBox(width: 8),
+          _NavIcon(icon: Icons.settings_outlined, onTap: onSettings),
+        ],
       ),
     );
   }
@@ -87,7 +80,6 @@ class _NavTab extends StatefulWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-
   const _NavTab({required this.label, required this.selected, required this.onTap});
 
   @override
@@ -101,13 +93,19 @@ class _NavTabState extends State<_NavTab> {
   @override
   void initState() {
     super.initState();
-    _focus.addListener(() {
-      if (_focused != _focus.hasFocus) setState(() => _focused = _focus.hasFocus);
-    });
+    _focus.addListener(_onFocus);
+  }
+
+  void _onFocus() {
+    if (_focused != _focus.hasFocus) setState(() => _focused = _focus.hasFocus);
   }
 
   @override
-  void dispose() { _focus.dispose(); super.dispose(); }
+  void dispose() {
+    _focus.removeListener(_onFocus);
+    _focus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -127,9 +125,7 @@ class _NavTabState extends State<_NavTab> {
           margin: const EdgeInsets.only(right: 4),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: widget.selected
-                ? Colors.white
-                : _focused ? Colors.white12 : Colors.transparent,
+            color: widget.selected ? Colors.white : (_focused ? Colors.white12 : Colors.transparent),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -162,13 +158,19 @@ class _NavIconState extends State<_NavIcon> {
   @override
   void initState() {
     super.initState();
-    _focus.addListener(() {
-      if (_focused != _focus.hasFocus) setState(() => _focused = _focus.hasFocus);
-    });
+    _focus.addListener(_onFocus);
+  }
+
+  void _onFocus() {
+    if (_focused != _focus.hasFocus) setState(() => _focused = _focus.hasFocus);
   }
 
   @override
-  void dispose() { _focus.dispose(); super.dispose(); }
+  void dispose() {
+    _focus.removeListener(_onFocus);
+    _focus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

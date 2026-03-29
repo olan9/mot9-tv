@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'tv_card.dart';
 
-/// صف أفقي محسّن مع ScrollController + auto-scroll + FocusTraversalGroup
 class TvRow<T> extends StatefulWidget {
   final String title;
   final List<T> items;
@@ -11,8 +10,6 @@ class TvRow<T> extends StatefulWidget {
   final void Function(T) onTap;
   final bool hasMore;
   final VoidCallback? onMore;
-
-  // أبعاد البطاقة
   final double cardWidth;
   final double cardHeight;
 
@@ -41,7 +38,7 @@ class _TvRowState<T> extends State<TvRow<T>> {
     final offset = index * (widget.cardWidth + 10);
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        offset.clamp(0, _scrollController.position.maxScrollExtent),
+        offset.clamp(0.0, _scrollController.position.maxScrollExtent),
         duration: const Duration(milliseconds: 280),
         curve: Curves.easeOut,
       );
@@ -65,45 +62,38 @@ class _TvRowState<T> extends State<TvRow<T>> {
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 10),
           child: Text(
             widget.title,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ),
         SizedBox(
           height: widget.cardHeight + 16,
-          child: FocusTraversalGroup(
-            policy: WidgetOrderTraversalPolicy(),
-            child: ListView.builder(
-              controller: _scrollController,
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              itemCount: itemCount,
-              itemExtent: widget.cardWidth + 10, // تحسين ضخم للأداء
-              itemBuilder: (_, i) {
-                if (i == widget.items.length) {
-                  return TvMoreCard(
-                    width: widget.cardWidth,
-                    height: widget.cardHeight,
-                    onTap: widget.onMore ?? () {},
-                  );
-                }
-                return TvCard(
-                  key: ValueKey('card_${widget.title}_$i'),
-                  imageUrl: widget.imageUrl(widget.items[i]),
-                  name: widget.name(widget.items[i]),
+          child: ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            itemCount: itemCount,
+            itemExtent: widget.cardWidth + 10,
+            itemBuilder: (_, i) {
+              if (i == widget.items.length) {
+                return TvMoreCard(
                   width: widget.cardWidth,
                   height: widget.cardHeight,
-                  onFocused: () {
-                    _scrollToIndex(i);
-                    widget.onFocus(widget.items[i]);
-                  },
-                  onTap: () => widget.onTap(widget.items[i]),
+                  onTap: widget.onMore ?? () {},
                 );
-              },
-            ),
+              }
+              return TvCard(
+                key: ValueKey('${widget.title}_$i'),
+                imageUrl: widget.imageUrl(widget.items[i]),
+                name: widget.name(widget.items[i]),
+                width: widget.cardWidth,
+                height: widget.cardHeight,
+                onFocused: () {
+                  _scrollToIndex(i);
+                  widget.onFocus(widget.items[i]);
+                },
+                onTap: () => widget.onTap(widget.items[i]),
+              );
+            },
           ),
         ),
       ],
