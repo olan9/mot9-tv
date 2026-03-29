@@ -24,16 +24,14 @@ class LiveChannel {
   final String name;
   final String? logo;
   final String categoryId;
-  final String streamType;
 
-  LiveChannel({required this.id, required this.name, this.logo, required this.categoryId, required this.streamType});
+  LiveChannel({required this.id, required this.name, this.logo, required this.categoryId});
 
   factory LiveChannel.fromJson(Map<String, dynamic> j) => LiveChannel(
         id: j['stream_id'].toString(),
         name: j['name'] ?? '',
         logo: j['stream_icon'],
         categoryId: j['category_id'].toString(),
-        streamType: j['stream_type'] ?? 'live',
       );
 
   String streamUrl(XtreamCredentials c) =>
@@ -63,4 +61,26 @@ class VodItem {
 
   String streamUrl(XtreamCredentials c) =>
       '${c.url}/movie/${c.username}/${c.password}/$id.mp4';
+}
+
+class SeriesItem {
+  final String id;
+  final String name;
+  final String? cover;
+  final String? plot;
+  final String? year;
+  final String categoryId;
+  final double rating;
+
+  SeriesItem({required this.id, required this.name, this.cover, this.plot, this.year, required this.categoryId, this.rating = 0});
+
+  factory SeriesItem.fromJson(Map<String, dynamic> j) => SeriesItem(
+        id: j['series_id'].toString(),
+        name: j['name'] ?? '',
+        cover: j['cover'],
+        plot: j['plot'],
+        year: j['year']?.toString(),
+        categoryId: j['category_id'].toString(),
+        rating: double.tryParse(j['rating']?.toString() ?? '0') ?? 0,
+      );
 }
