@@ -4,45 +4,35 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/models.dart';
 import '../services/xtream_service.dart';
 import '../utils/theme.dart';
+import 'detail_screen.dart';
 
 class VodScreen extends StatefulWidget {
   final XtreamService service;
   final XtreamCredentials creds;
-  const VodScreen({super.key, required this.service, required this.creds});
+  final List<VodItem> vods;
+  final List<Category> categories;
+
+  const VodScreen({super.key, required this.service, required this.creds, required this.vods, required this.categories});
 
   @override
   State<VodScreen> createState() => _VodScreenState();
 }
 
 class _VodScreenState extends State<VodScreen> {
-  List<Category> _categories = [];
-  List<VodItem> _vods = [];
   int _selectedCat = 0;
-  bool _loading = true;
   String _search = '';
   final _searchCtrl = TextEditingController();
+  late List<Category> _cats;
 
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final cats = await widget.service.getVodCategories();
-    final vods = await widget.service.getVodStreams();
-    if (mounted) {
-      setState(() {
-        _categories = [Category(id: '', name: 'الكل'), ...cats];
-        _vods = vods;
-        _loading = false;
-      });
-    }
+    _cats = [Category(id: '', name: 'الكل'), ...widget.categories];
   }
 
   List<VodItem> get _filtered {
-    var items = _vods;
-    final cat = _categories.isEmpty ? null : _categories[_selectedCat];
+    var items = widget.vods;
+    final cat = _cats.isEmpty ? null : _cats[_selectedCat];
     if (cat != null && cat.id.isNotEmpty) {
       items = items.where((v) => v.categoryId == cat.id).toList();
     }
@@ -54,17 +44,13 @@ class _VodScreenState extends State<VodScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: Mot9Theme.accentRed));
-
     return Row(
       children: [
-        // Sidebar
         Container(
           width: 220,
           color: const Color(0xFF0D0D0D),
           child: Column(
             children: [
-              // Search
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: TextField(
@@ -82,15 +68,11 @@ class _VodScreenState extends State<VodScreen> {
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
-                child: Align(alignment: Alignment.centerLeft, child: Text('الفئات', style: TextStyle(color: Mot9Theme.textSecondary, fontSize: 12, letterSpacing: 1.5))),
-              ),
               Expanded(
                 child: ListView.builder(
-                  itemCount: _categories.length,
+                  itemCount: _cats.length,
                   itemBuilder: (_, i) => _SideItem(
-                    label: _categories[i].name,
+                    label: _cats[i].name,
                     selected: _selectedCat == i,
                     onTap: () => setState(() => _selectedCat = i),
                   ),
@@ -99,7 +81,6 @@ class _VodScreenState extends State<VodScreen> {
             ],
           ),
         ),
-        // Grid
         Expanded(
           child: _filtered.isEmpty
               ? const Center(child: Text('لا توجد نتائج', style: TextStyle(color: Colors.white38)))
@@ -114,7 +95,9 @@ class _VodScreenState extends State<VodScreen> {
                   itemCount: _filtered.length,
                   itemBuilder: (_, i) => _VodCard(
                     item: _filtered[i],
-                    onTap: () {},
+                    onTap: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => MovieDetailScreen(item: _filtered[i], creds: widget.creds),
+                    )),
                   ),
                 ),
         ),
@@ -135,12 +118,26 @@ class _SideItem extends StatefulWidget {
 
 class _SideItemState extends State<_SideItem> {
   bool _focused = false;
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() { _focus.dispose(); super.dispose(); }
+
   @override
   Widget build(BuildContext context) {
     return Focus(
-      onFocusChange: (f) => setState(() => _focused = f),
+      focusNode: _focus,
       onKeyEvent: (_, e) {
-        if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) { widget.onTap(); return KeyEventResult.handled; }
+        if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
         return KeyEventResult.ignored;
       },
       child: GestureDetector(
@@ -154,7 +151,8 @@ class _SideItemState extends State<_SideItem> {
           ),
           child: Text(widget.label, style: TextStyle(
             color: widget.selected ? Colors.white : (_focused ? Colors.white : Colors.white60),
-            fontSize: 14, fontWeight: widget.selected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+            fontWeight: widget.selected ? FontWeight.bold : FontWeight.normal,
           )),
         ),
       ),
@@ -173,13 +171,26 @@ class _VodCard extends StatefulWidget {
 
 class _VodCardState extends State<_VodCard> {
   bool _focused = false;
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() { _focus.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     return Focus(
-      onFocusChange: (f) => setState(() => _focused = f),
+      focusNode: _focus,
       onKeyEvent: (_, e) {
-        if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) { widget.onTap(); return KeyEventResult.handled; }
+        if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
         return KeyEventResult.ignored;
       },
       child: GestureDetector(
@@ -202,18 +213,14 @@ class _VodCardState extends State<_VodCard> {
                     ? CachedNetworkImage(imageUrl: widget.item.poster!, fit: BoxFit.cover,
                         errorWidget: (_, __, ___) => Container(color: Mot9Theme.cardColor, child: const Icon(Icons.movie, color: Colors.white24, size: 40)))
                     : Container(color: Mot9Theme.cardColor, child: const Icon(Icons.movie, color: Colors.white24, size: 40)),
-                // Bottom info
                 Positioned(
                   bottom: 0, left: 0, right: 0,
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(8, 24, 8, 8),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black87],
-                      ),
-                    ),
+                    decoration: const BoxDecoration(gradient: LinearGradient(
+                      begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black87],
+                    )),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -227,13 +234,11 @@ class _VodCardState extends State<_VodCard> {
                   ),
                 ),
                 if (_focused)
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Mot9Theme.accentRed.withOpacity(0.9), shape: BoxShape.circle),
-                      child: const Icon(Icons.play_arrow, color: Colors.white, size: 32),
-                    ),
-                  ),
+                  Center(child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Mot9Theme.accentRed.withOpacity(0.9), shape: BoxShape.circle),
+                    child: const Icon(Icons.play_arrow, color: Colors.white, size: 32),
+                  )),
               ],
             ),
           ),
