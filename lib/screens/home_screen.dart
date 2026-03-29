@@ -7,14 +7,13 @@ import '../services/xtream_service.dart';
 import '../services/tmdb_service.dart';
 import '../services/watch_history_service.dart';
 import '../utils/theme.dart';
-import '../widgets/side_nav.dart';
-import 'login_screen.dart';
+import 'detail_screen.dart';
+import 'player_screen.dart';
 import 'live_screen.dart';
 import 'vod_screen.dart';
 import 'series_screen.dart';
-import 'detail_screen.dart';
-import 'player_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'login_screen.dart';
 
 PageRouteBuilder _fadeRoute(Widget page) => PageRouteBuilder(
   pageBuilder: (_, __, ___) => page,
@@ -31,7 +30,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  NavItem _nav = NavItem.home;
+  int _tab = 0; // 0=ForYou, 1=Live, 2=Movies, 3=Series
   late XtreamService _service;
 
   List<LiveChannel> _channels = [];
@@ -74,63 +73,224 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF141414),
-      body: Row(
+      backgroundColor: Colors.black,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFE50914)))
+          : _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    switch (_tab) {
+      case 1:
+        return _withHeader(LiveScreen(service: _service, creds: widget.creds, channels: _channels, categories: _liveCats));
+      case 2:
+        return _withHeader(VodScreen(service: _service, creds: widget.creds, vods: _vods, categories: _vodCats));
+      case 3:
+        return _withHeader(SeriesScreen(service: _service, creds: widget.creds, series: _series, categories: _seriesCats));
+      default:
+        return _ForYouTab(
+          vods: _vods,
+          series: _series,
+          vodCats: _vodCats,
+          seriesCats: _seriesCats,
+          channels: _channels,
+          creds: widget.creds,
+          tab: _tab,
+          onTabChange: (t) => setState(() => _tab = t),
+        );
+    }
+  }
+
+  Widget _withHeader(Widget child) {
+    return Column(
+      children: [
+        _TopHeader(tab: _tab, onTabChange: (t) => setState(() => _tab = t)),
+        Expanded(child: child),
+      ],
+    );
+  }
+}
+
+// =================== TOP HEADER ===================
+
+class _TopHeader extends StatelessWidget {
+  final int tab;
+  final ValueChanged<int> onTabChange;
+
+  const _TopHeader({required this.tab, required this.onTabChange});
+
+  static const _tabs = ['For You', 'Live', 'Movies', 'Series'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      color: Colors.black.withOpacity(0.85),
+      child: Row(
         children: [
-          SideNav(
-            selected: _nav,
-            onSelect: (item) {
-              if (item == NavItem.settings) return;
-              setState(() => _nav = item);
-            },
+          // Logo
+          RichText(
+            text: const TextSpan(children: [
+              TextSpan(text: 'mot', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: -1)),
+              TextSpan(text: '⁹', style: TextStyle(color: Color(0xFFE50914), fontSize: 13, fontWeight: FontWeight.bold)),
+            ]),
           ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Mot9Theme.accentRed))
-                : _buildPage(),
-          ),
+          const SizedBox(width: 32),
+          // Tabs
+          ..._tabs.asMap().entries.map((e) => _TabItem(
+            label: e.value,
+            selected: tab == e.key,
+            onTap: () => onTabChange(e.key),
+          )),
+          const Spacer(),
+          // Icons
+          _IconBtn(icon: Icons.search, onTap: () {}),
+          const SizedBox(width: 8),
+          _IconBtn(icon: Icons.settings, onTap: () {}),
         ],
       ),
     );
   }
+}
 
-  Widget _buildPage() {
-    switch (_nav) {
-      case NavItem.home:
-        return _HomeTab(vods: _vods, series: _series, vodCats: _vodCats, seriesCats: _seriesCats, creds: widget.creds);
-      case NavItem.movies:
-        return VodScreen(service: _service, creds: widget.creds, vods: _vods, categories: _vodCats);
-      case NavItem.series:
-        return SeriesScreen(service: _service, creds: widget.creds, series: _series, categories: _seriesCats);
-      case NavItem.live:
-        return LiveScreen(service: _service, creds: widget.creds, channels: _channels, categories: _liveCats);
-      default:
-        return const SizedBox();
-    }
+class _TabItem extends StatefulWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _TabItem({required this.label, required this.selected, required this.onTap});
+
+  @override
+  State<_TabItem> createState() => _TabItemState();
+}
+
+class _TabItemState extends State<_TabItem> {
+  bool _focused = false;
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() { _focus.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      focusNode: _focus,
+      onKeyEvent: (_, e) {
+        if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.only(right: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: _focused ? Colors.white12 : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              color: widget.selected ? Colors.white : Colors.white54,
+              fontWeight: widget.selected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
-// =================== HOME TAB ===================
+class _IconBtn extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _IconBtn({required this.icon, required this.onTap});
 
-class _HomeTab extends StatefulWidget {
+  @override
+  State<_IconBtn> createState() => _IconBtnState();
+}
+
+class _IconBtnState extends State<_IconBtn> {
+  bool _focused = false;
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() { _focus.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      focusNode: _focus,
+      onKeyEvent: (_, e) {
+        if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: _focused ? Colors.white12 : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Icon(widget.icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+}
+
+// =================== FOR YOU TAB ===================
+
+class _ForYouTab extends StatefulWidget {
   final List<VodItem> vods;
   final List<SeriesItem> series;
   final List<Category> vodCats;
   final List<Category> seriesCats;
+  final List<LiveChannel> channels;
   final XtreamCredentials creds;
+  final int tab;
+  final ValueChanged<int> onTabChange;
 
-  const _HomeTab({required this.vods, required this.series, required this.vodCats, required this.seriesCats, required this.creds});
+  const _ForYouTab({
+    required this.vods, required this.series,
+    required this.vodCats, required this.seriesCats,
+    required this.channels, required this.creds,
+    required this.tab, required this.onTabChange,
+  });
 
   @override
-  State<_HomeTab> createState() => _HomeTabState();
+  State<_ForYouTab> createState() => _ForYouTabState();
 }
 
-class _HomeTabState extends State<_HomeTab> {
+class _ForYouTabState extends State<_ForYouTab> {
   TmdbMovie? _heroTmdb;
   VodItem? _heroVod;
   bool _heroLoading = false;
   Timer? _debounce;
   List<WatchEntry> _history = [];
+  int _heroIndex = 0;
 
   @override
   void initState() {
@@ -153,6 +313,7 @@ class _HomeTabState extends State<_HomeTab> {
   Future<void> _setInitialHero() async {
     if (widget.vods.isEmpty) return;
     final idx = DateTime.now().millisecond % widget.vods.length;
+    setState(() => _heroIndex = idx);
     await _loadHero(widget.vods[idx]);
   }
 
@@ -170,186 +331,236 @@ class _HomeTabState extends State<_HomeTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Hero — ثابت فوق
-        _DynamicHero(vod: _heroVod, tmdb: _heroTmdb, loading: _heroLoading, creds: widget.creds),
-        // Scrollable rows تحت
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.only(bottom: 32),
-            children: [
-              if (_history.isNotEmpty)
-                _ContinueWatchingRow(history: _history),
-              ...widget.vodCats.take(4).map((cat) {
-                final items = widget.vods.where((v) => v.categoryId == cat.id).take(20).toList();
-                if (items.isEmpty) return const SizedBox();
-                return _ContentRow<VodItem>(
-                  title: cat.name,
-                  items: items,
-                  imageBuilder: (v) => v.poster,
-                  nameBuilder: (v) => v.name,
-                  onFocus: (v) => _onFocus(v),
-                  onTap: (v) => Navigator.push(context, _fadeRoute(MovieDetailScreen(item: v, creds: widget.creds))),
-                );
-              }),
-              ...widget.seriesCats.take(3).map((cat) {
-                final items = widget.series.where((s) => s.categoryId == cat.id).take(20).toList();
-                if (items.isEmpty) return const SizedBox();
-                return _ContentRow<SeriesItem>(
-                  title: cat.name,
-                  items: items,
-                  imageBuilder: (s) => s.cover,
-                  nameBuilder: (s) => s.name,
-                  onFocus: (_) {},
-                  onTap: (_) {},
-                );
-              }),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
+    final backdropUrl = _heroTmdb?.backdropUrl ?? _heroVod?.poster;
+    final title = _heroTmdb?.title ?? _heroVod?.name ?? '';
+    final overview = _heroTmdb?.overview ?? '';
 
-// =================== DYNAMIC HERO ===================
-
-class _DynamicHero extends StatelessWidget {
-  final VodItem? vod;
-  final TmdbMovie? tmdb;
-  final bool loading;
-  final XtreamCredentials creds;
-
-  const _DynamicHero({this.vod, this.tmdb, required this.loading, required this.creds});
-
-  @override
-  Widget build(BuildContext context) {
-    final backdropUrl = tmdb?.backdropUrl ?? vod?.poster;
-    final title = tmdb?.title ?? vod?.name ?? '';
-    final overview = tmdb?.overview ?? '';
-    final year = tmdb?.year ?? '';
-    final rating = tmdb?.ratingStr ?? '';
-
-    return SizedBox(
-      height: 280,
-      child: Stack(
-        fit: StackFit.expand,
+    return SingleChildScrollView(
+      child: Column(
         children: [
-          // Backdrop with animated switch
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 500),
-            child: backdropUrl != null
-                ? CachedNetworkImage(
-                    key: ValueKey(backdropUrl),
-                    imageUrl: backdropUrl,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => Container(color: const Color(0xFF1A1A1A)),
-                  )
-                : Container(key: const ValueKey('empty'), color: const Color(0xFF1A1A1A)),
-          ),
-          // Left gradient
-          Container(decoration: const BoxDecoration(gradient: LinearGradient(
-            begin: Alignment.centerLeft, end: Alignment.centerRight,
-            colors: [Color(0xFF141414), Color(0xCC141414), Colors.transparent],
-            stops: [0.0, 0.4, 0.7],
-          ))),
-          // Bottom gradient
-          Container(decoration: const BoxDecoration(gradient: LinearGradient(
-            begin: Alignment.bottomCenter, end: Alignment.topCenter,
-            colors: [Color(0xFF141414), Colors.transparent],
-            stops: [0.0, 0.35],
-          ))),
-          // Content — animated switch
-          Positioned(
-            left: 28, top: 0, bottom: 0,
-            width: MediaQuery.of(context).size.width * 0.44,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, anim) => FadeTransition(
-                opacity: anim,
-                child: SlideTransition(
-                  position: Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(anim),
-                  child: child,
+          // =================== HERO SECTION ===================
+          Stack(
+            children: [
+              // Background Image
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 600),
+                child: backdropUrl != null
+                    ? CachedNetworkImage(
+                        key: ValueKey(backdropUrl),
+                        imageUrl: backdropUrl,
+                        width: double.infinity,
+                        height: 420,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => Container(height: 420, color: const Color(0xFF1A1A1A)),
+                      )
+                    : Container(key: const ValueKey('empty'), height: 420, color: const Color(0xFF1A1A1A)),
+              ),
+
+              // Dark Gradient Overlay (left → transparent)
+              Container(
+                height: 420,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withOpacity(0.9),
+                      Colors.black.withOpacity(0.4),
+                      Colors.transparent,
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
                 ),
               ),
-              child: Column(
-                key: ValueKey(title),
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (title.isNotEmpty)
-                    Text(title,
-                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, height: 1.2),
-                      maxLines: 2, overflow: TextOverflow.ellipsis,
-                    ),
-                  const SizedBox(height: 5),
-                  Row(children: [
-                    if (year.isNotEmpty) ...[
-                      Text(year, style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                      const SizedBox(width: 10),
-                    ],
-                    if (rating.isNotEmpty) ...[
-                      const Icon(Icons.star, color: Color(0xFFFFD700), size: 11),
-                      const SizedBox(width: 3),
-                      Text(rating, style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                    ],
-                  ]),
-                  if (overview.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(overview,
-                      style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, height: 1.5),
-                      maxLines: 2, overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  if (vod != null)
+
+              // Bottom gradient
+              Container(
+                height: 420,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Colors.black, Colors.transparent],
+                    stops: [0.0, 0.3],
+                  ),
+                ),
+              ),
+
+              // Top Header Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Left: logo + tabs
                     Row(children: [
-                      _HeroBtn(
-                        icon: Icons.play_arrow_rounded,
-                        label: 'تشغيل',
-                        primary: true,
-                        onTap: () => Navigator.push(context, _fadeRoute(
-                          PlayerScreen(id: vod!.id, title: vod!.name, url: vod!.streamUrl(creds), poster: vod!.poster),
-                        )),
-                      ),
-                      const SizedBox(width: 8),
-                      _HeroBtn(
-                        icon: Icons.info_outline_rounded,
-                        label: 'تفاصيل',
-                        primary: false,
-                        onTap: () => Navigator.push(context, _fadeRoute(MovieDetailScreen(item: vod!, creds: creds))),
+                      RichText(text: const TextSpan(children: [
+                        TextSpan(text: 'mot', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: -1)),
+                        TextSpan(text: '⁹', style: TextStyle(color: Color(0xFFE50914), fontSize: 13, fontWeight: FontWeight.bold)),
+                      ])),
+                      const SizedBox(width: 24),
+                      ...[('For You', 0), ('Live', 1), ('Movies', 2), ('Series', 3)].map((t) =>
+                        _TabItem(label: t.$1, selected: widget.tab == t.$2, onTap: () => widget.onTabChange(t.$2))
                       ),
                     ]),
-                ],
+                    // Right: icons
+                    Row(children: [
+                      _IconBtn(icon: Icons.search, onTap: () {}),
+                      const SizedBox(width: 8),
+                      _IconBtn(icon: Icons.settings_outlined, onTap: () {}),
+                    ]),
+                  ],
+                ),
+              ),
+
+              // Hero Content (Title + Description + Button)
+              Positioned(
+                left: 24,
+                bottom: 40,
+                right: 24,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 400),
+                  switchInCurve: Curves.easeOutCubic,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero).animate(anim),
+                      child: child,
+                    ),
+                  ),
+                  child: Column(
+                    key: ValueKey(title),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_heroTmdb?.genres.isNotEmpty == true)
+                        Text(
+                          _heroTmdb!.genres.take(2).join(' · '),
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      const SizedBox(height: 6),
+                      if (title.isNotEmpty)
+                        Text(
+                          title,
+                          style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold, height: 1.2),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      const SizedBox(height: 8),
+                      if (overview.isNotEmpty)
+                        Text(
+                          overview,
+                          style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      const SizedBox(height: 16),
+                      if (_heroVod != null)
+                        Row(children: [
+                          _PlayBtn(
+                            onTap: () => Navigator.push(context, _fadeRoute(
+                              PlayerScreen(id: _heroVod!.id, title: _heroVod!.name, url: _heroVod!.streamUrl(widget.creds), poster: _heroVod!.poster),
+                            )),
+                          ),
+                          const SizedBox(width: 10),
+                          _InfoBtn(
+                            onTap: () => Navigator.push(context, _fadeRoute(
+                              MovieDetailScreen(item: _heroVod!, creds: widget.creds),
+                            )),
+                          ),
+                        ]),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Carousel dots (right bottom)
+              Positioned(
+                right: 20,
+                bottom: 16,
+                child: Row(
+                  children: List.generate(5, (i) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: i == (_heroIndex % 5) ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: i == (_heroIndex % 5) ? Colors.white : Colors.white38,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  )),
+                ),
+              ),
+
+              // Loading indicator
+              if (_heroLoading)
+                const Positioned(top: 60, right: 20,
+                  child: SizedBox(width: 14, height: 14,
+                    child: CircularProgressIndicator(color: Color(0xFFE50914), strokeWidth: 1.5))),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // =================== CONTINUE WATCHING ===================
+          if (_history.isNotEmpty) ...[
+            _SectionHeader(title: 'متابعة المشاهدة'),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: _history.length,
+                itemBuilder: (_, i) => _ContinueCard(entry: _history[i]),
               ),
             ),
-          ),
-          // Loading indicator
-          if (loading)
-            const Positioned(top: 16, right: 16,
-              child: SizedBox(width: 14, height: 14,
-                child: CircularProgressIndicator(color: Mot9Theme.accentRed, strokeWidth: 1.5))),
+            const SizedBox(height: 20),
+          ],
+
+          // =================== VOD ROWS ===================
+          ...widget.vodCats.take(4).map((cat) {
+            final items = widget.vods.where((v) => v.categoryId == cat.id).take(20).toList();
+            if (items.isEmpty) return const SizedBox();
+            return _ContentSection<VodItem>(
+              title: cat.name,
+              items: items,
+              imageBuilder: (v) => v.poster,
+              nameBuilder: (v) => v.name,
+              onFocus: (v) => _onFocus(v),
+              onTap: (v) => Navigator.push(context, _fadeRoute(MovieDetailScreen(item: v, creds: widget.creds))),
+            );
+          }),
+
+          // =================== SERIES ROWS ===================
+          ...widget.seriesCats.take(3).map((cat) {
+            final items = widget.series.where((s) => s.categoryId == cat.id).take(20).toList();
+            if (items.isEmpty) return const SizedBox();
+            return _ContentSection<SeriesItem>(
+              title: cat.name,
+              items: items,
+              imageBuilder: (s) => s.cover,
+              nameBuilder: (s) => s.name,
+              onFocus: (_) {},
+              onTap: (_) {},
+            );
+          }),
+
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
 }
 
-class _HeroBtn extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final bool primary;
+// =================== PLAY / INFO BUTTONS ===================
+
+class _PlayBtn extends StatefulWidget {
   final VoidCallback onTap;
-  const _HeroBtn({required this.icon, required this.label, required this.primary, required this.onTap});
+  const _PlayBtn({required this.onTap});
 
   @override
-  State<_HeroBtn> createState() => _HeroBtnState();
+  State<_PlayBtn> createState() => _PlayBtnState();
 }
 
-class _HeroBtnState extends State<_HeroBtn> {
+class _PlayBtnState extends State<_PlayBtn> {
   bool _focused = false;
   final _focus = FocusNode();
 
@@ -376,27 +587,21 @@ class _HeroBtnState extends State<_HeroBtn> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 1.0, end: _focused ? 1.05 : 1.0),
-          duration: const Duration(milliseconds: 200),
+          tween: Tween(begin: 1.0, end: _focused ? 1.06 : 1.0),
+          duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutExpo,
           builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             decoration: BoxDecoration(
-              color: widget.primary
-                  ? (_focused ? Colors.white : Colors.white.withOpacity(0.88))
-                  : (_focused ? Colors.white.withOpacity(0.2) : Colors.white.withOpacity(0.1)),
-              borderRadius: BorderRadius.circular(4),
-              border: !widget.primary ? Border.all(color: _focused ? Colors.white38 : Colors.transparent) : null,
+              color: _focused ? Colors.white : Colors.white.withOpacity(0.9),
+              borderRadius: const BorderRadius.all(Radius.circular(50)),
+              boxShadow: _focused ? [const BoxShadow(color: Colors.white30, blurRadius: 12)] : [],
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(widget.icon, color: widget.primary ? Colors.black : Colors.white, size: 16),
-              const SizedBox(width: 5),
-              Text(widget.label, style: TextStyle(
-                color: widget.primary ? Colors.black : Colors.white,
-                fontSize: 12, fontWeight: FontWeight.bold,
-              )),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.play_arrow_rounded, color: Colors.black, size: 18),
+              SizedBox(width: 6),
+              Text('تشغيل', style: TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
             ]),
           ),
         ),
@@ -405,35 +610,80 @@ class _HeroBtnState extends State<_HeroBtn> {
   }
 }
 
-// =================== CONTINUE WATCHING ===================
+class _InfoBtn extends StatefulWidget {
+  final VoidCallback onTap;
+  const _InfoBtn({required this.onTap});
 
-class _ContinueWatchingRow extends StatelessWidget {
-  final List<WatchEntry> history;
-  const _ContinueWatchingRow({required this.history});
+  @override
+  State<_InfoBtn> createState() => _InfoBtnState();
+}
+
+class _InfoBtnState extends State<_InfoBtn> {
+  bool _focused = false;
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() { _focus.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
-          child: Text('متابعة المشاهدة', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-        ),
-        SizedBox(
-          height: 100,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: history.length,
-            itemBuilder: (_, i) => _ContinueCard(entry: history[i]),
+    return Focus(
+      focusNode: _focus,
+      onKeyEvent: (_, e) {
+        if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 1.0, end: _focused ? 1.06 : 1.0),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutExpo,
+          builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: _focused ? Colors.white24 : Colors.white12,
+              borderRadius: const BorderRadius.all(Radius.circular(50)),
+              border: Border.all(color: Colors.white38),
+            ),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.info_outline_rounded, color: Colors.white, size: 16),
+              SizedBox(width: 6),
+              Text('تفاصيل', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+            ]),
           ),
         ),
-        const SizedBox(height: 4),
-      ],
+      ),
     );
   }
 }
+
+// =================== SECTION HEADER ===================
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Text(title, style: const TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+// =================== CONTINUE WATCHING ===================
 
 class _ContinueCard extends StatefulWidget {
   final WatchEntry entry;
@@ -471,38 +721,38 @@ class _ContinueCardState extends State<_ContinueCard> {
         onTap: () => _open(context),
         child: TweenAnimationBuilder<double>(
           tween: Tween(begin: 1.0, end: _focused ? 1.08 : 1.0),
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutExpo,
           builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
           child: Container(
             width: 170,
-            margin: const EdgeInsets.only(right: 10, top: 4, bottom: 4),
+            margin: const EdgeInsets.only(right: 12, top: 4, bottom: 4),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: _focused ? Mot9Theme.accentRed : Colors.transparent, width: 2),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _focused ? const Color(0xFFE50914) : Colors.transparent, width: 2),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(5),
+              borderRadius: BorderRadius.circular(9),
               child: Stack(fit: StackFit.expand, children: [
                 widget.entry.poster != null
                     ? CachedNetworkImage(imageUrl: widget.entry.poster!, fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(color: Mot9Theme.cardColor))
-                    : Container(color: Mot9Theme.cardColor),
+                        errorWidget: (_, __, ___) => Container(color: const Color(0xFF2A2A2A)))
+                    : Container(color: const Color(0xFF2A2A2A)),
                 Positioned(bottom: 0, left: 0, right: 0,
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Container(
-                      padding: const EdgeInsets.fromLTRB(6, 10, 6, 3),
-                      decoration: const BoxDecoration(gradient: LinearGradient(
+                      padding: const EdgeInsets.fromLTRB(8, 16, 8, 4),
+                      decoration: BoxDecoration(gradient: LinearGradient(
                         begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black87],
+                        colors: [Colors.transparent, Colors.black.withOpacity(0.9)],
                       )),
                       child: Text(widget.entry.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
                     ),
                     LinearProgressIndicator(
                       value: widget.entry.progress,
                       backgroundColor: Colors.white24,
-                      color: Mot9Theme.accentRed,
+                      color: const Color(0xFFE50914),
                       minHeight: 2.5,
                     ),
                   ]),
@@ -526,9 +776,9 @@ class _ContinueCardState extends State<_ContinueCard> {
   }
 }
 
-// =================== CONTENT ROW ===================
+// =================== CONTENT SECTION ===================
 
-class _ContentRow<T> extends StatelessWidget {
+class _ContentSection<T> extends StatelessWidget {
   final String title;
   final List<T> items;
   final String? Function(T) imageBuilder;
@@ -536,7 +786,7 @@ class _ContentRow<T> extends StatelessWidget {
   final void Function(T) onFocus;
   final void Function(T) onTap;
 
-  const _ContentRow({
+  const _ContentSection({
     required this.title, required this.items,
     required this.imageBuilder, required this.nameBuilder,
     required this.onFocus, required this.onTap,
@@ -547,12 +797,10 @@ class _ContentRow<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-          child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-        ),
+        _SectionHeader(title: title),
+        const SizedBox(height: 10),
         SizedBox(
-          height: 155,
+          height: 150,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -566,10 +814,13 @@ class _ContentRow<T> extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 20),
       ],
     );
   }
 }
+
+// =================== POSTER CARD ===================
 
 class _PosterCard<T> extends StatefulWidget {
   final T item;
@@ -588,9 +839,8 @@ class _PosterCardState<T> extends State<_PosterCard<T>> {
   bool _focused = false;
   final _focus = FocusNode();
 
-  // Fixed dimensions
   static const double _w = 96.0;
-  static const double _h = 144.0;
+  static const double _h = 140.0;
 
   @override
   void initState() {
@@ -625,40 +875,31 @@ class _PosterCardState<T> extends State<_PosterCard<T>> {
           child: Container(
             width: _w,
             height: _h,
-            margin: const EdgeInsets.only(right: 8, top: 4, bottom: 4),
+            margin: const EdgeInsets.only(right: 10, top: 4, bottom: 4),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: _focused ? Mot9Theme.accentRed : Colors.transparent,
-                width: 2,
-              ),
-              boxShadow: _focused
-                  ? [const BoxShadow(color: Colors.black87, blurRadius: 14, spreadRadius: 2)]
-                  : [],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _focused ? const Color(0xFFE50914) : Colors.transparent, width: 2),
+              boxShadow: _focused ? [const BoxShadow(color: Colors.black87, blurRadius: 14, spreadRadius: 2)] : [],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(5),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  widget.image != null
-                      ? CachedNetworkImage(imageUrl: widget.image!, fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => _placeholder())
-                      : _placeholder(),
-                  Positioned(
-                    bottom: 0, left: 0, right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(5, 12, 5, 5),
-                      decoration: const BoxDecoration(gradient: LinearGradient(
-                        begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black87],
-                      )),
-                      child: Text(widget.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
-                    ),
+              borderRadius: BorderRadius.circular(9),
+              child: Stack(fit: StackFit.expand, children: [
+                widget.image != null
+                    ? CachedNetworkImage(imageUrl: widget.image!, fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => _placeholder())
+                    : _placeholder(),
+                Positioned(bottom: 0, left: 0, right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(6, 14, 6, 6),
+                    decoration: BoxDecoration(gradient: LinearGradient(
+                      begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black.withOpacity(0.85)],
+                    )),
+                    child: Text(widget.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
                   ),
-                ],
-              ),
+                ),
+              ]),
             ),
           ),
         ),
@@ -666,6 +907,8 @@ class _PosterCardState<T> extends State<_PosterCard<T>> {
     );
   }
 
-  Widget _placeholder() => Container(color: Mot9Theme.cardColor,
-      child: const Icon(Icons.movie, color: Colors.white12, size: 24));
+  Widget _placeholder() => Container(
+    color: const Color(0xFF2A2A2A),
+    child: const Icon(Icons.movie, color: Colors.white12, size: 24),
+  );
 }
