@@ -13,28 +13,28 @@ class SideNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 64,
-      color: const Color(0xFF0A0A0A),
+      width: 56,
+      color: const Color(0xFF141414),
       child: Column(
         children: [
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 10),
             child: RichText(
               text: const TextSpan(children: [
-                TextSpan(text: 'm', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                TextSpan(text: '9', style: TextStyle(color: Mot9Theme.accentRed, fontSize: 10, fontWeight: FontWeight.bold)),
+                TextSpan(text: 'm', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                TextSpan(text: '9', style: TextStyle(color: Mot9Theme.accentRed, fontSize: 9, fontWeight: FontWeight.bold)),
               ]),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           _NavBtn(icon: Icons.home_rounded, item: NavItem.home, selected: selected, onSelect: onSelect),
           _NavBtn(icon: Icons.movie_rounded, item: NavItem.movies, selected: selected, onSelect: onSelect),
           _NavBtn(icon: Icons.tv_rounded, item: NavItem.series, selected: selected, onSelect: onSelect),
           _NavBtn(icon: Icons.live_tv_rounded, item: NavItem.live, selected: selected, onSelect: onSelect),
           const Spacer(),
           _NavBtn(icon: Icons.settings_rounded, item: NavItem.settings, selected: selected, onSelect: onSelect),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -81,22 +81,22 @@ class _NavBtnState extends State<_NavBtn> {
       },
       child: GestureDetector(
         onTap: () => widget.onSelect(widget.item),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: _focused ? Colors.white.withOpacity(0.1) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            widget.icon,
-            size: 22,
-            color: _selected
-                ? Mot9Theme.accentRed
-                : _focused ? Colors.white
-                : Colors.white38,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 1.0, end: _focused ? 1.15 : 1.0),
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutExpo,
+          builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+            child: Icon(
+              widget.icon,
+              size: 22,
+              color: _selected
+                  ? Mot9Theme.accentRed
+                  : _focused
+                      ? Colors.white
+                      : Colors.white30,
+            ),
           ),
         ),
       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -14,6 +15,12 @@ import 'series_screen.dart';
 import 'detail_screen.dart';
 import 'player_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+PageRouteBuilder _fadeRoute(Widget page) => PageRouteBuilder(
+  pageBuilder: (_, __, ___) => page,
+  transitionsBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
+  transitionDuration: const Duration(milliseconds: 220),
+);
 
 class HomeScreen extends StatefulWidget {
   final XtreamCredentials creds;
@@ -64,26 +71,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('credentials');
-    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Mot9Theme.bgColor,
+      backgroundColor: const Color(0xFF141414),
       body: Row(
         children: [
           SideNav(
             selected: _nav,
             onSelect: (item) {
-              if (item == NavItem.settings) {
-                // فارغة حالياً
-              } else {
-                setState(() => _nav = item);
-              }
+              if (item == NavItem.settings) return;
+              setState(() => _nav = item);
             },
           ),
           Expanded(
@@ -107,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case NavItem.live:
         return LiveScreen(service: _service, creds: widget.creds, channels: _channels, categories: _liveCats);
       default:
-        return const Center(child: Text('الإعدادات', style: TextStyle(color: Colors.white)));
+        return const SizedBox();
     }
   }
 }
@@ -128,22 +126,23 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
-  // Hero state
   TmdbMovie? _heroTmdb;
   VodItem? _heroVod;
   bool _heroLoading = false;
-
-  // Continue watching
+  Timer? _debounce;
   List<WatchEntry> _history = [];
-
-  // Focused item
-  VodItem? _focusedVod;
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
-    _setRandomHero();
+    _setInitialHero();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadHistory() async {
@@ -151,74 +150,78 @@ class _HomeTabState extends State<_HomeTab> {
     if (mounted) setState(() => _history = h);
   }
 
-  Future<void> _setRandomHero() async {
+  Future<void> _setInitialHero() async {
     if (widget.vods.isEmpty) return;
     final idx = DateTime.now().millisecond % widget.vods.length;
-    final vod = widget.vods[idx];
-    _updateHero(vod);
+    await _loadHero(widget.vods[idx]);
   }
 
-  Future<void> _updateHero(VodItem vod) async {
+  Future<void> _loadHero(VodItem vod) async {
     if (_heroLoading) return;
-    _heroLoading = true;
+    setState(() => _heroLoading = true);
     final tmdb = await TmdbService.searchMovie(vod.name);
     if (mounted) setState(() { _heroVod = vod; _heroTmdb = tmdb; _heroLoading = false; });
   }
 
+  void _onFocus(VodItem vod) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () => _loadHero(vod));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    return Column(
       children: [
-        // Hero
-        _HeroBanner(
-          vod: _heroVod,
-          tmdb: _heroTmdb,
-          creds: widget.creds,
+        // Hero — ثابت فوق
+        _DynamicHero(vod: _heroVod, tmdb: _heroTmdb, loading: _heroLoading, creds: widget.creds),
+        // Scrollable rows تحت
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 32),
+            children: [
+              if (_history.isNotEmpty)
+                _ContinueWatchingRow(history: _history),
+              ...widget.vodCats.take(4).map((cat) {
+                final items = widget.vods.where((v) => v.categoryId == cat.id).take(20).toList();
+                if (items.isEmpty) return const SizedBox();
+                return _ContentRow<VodItem>(
+                  title: cat.name,
+                  items: items,
+                  imageBuilder: (v) => v.poster,
+                  nameBuilder: (v) => v.name,
+                  onFocus: (v) => _onFocus(v),
+                  onTap: (v) => Navigator.push(context, _fadeRoute(MovieDetailScreen(item: v, creds: widget.creds))),
+                );
+              }),
+              ...widget.seriesCats.take(3).map((cat) {
+                final items = widget.series.where((s) => s.categoryId == cat.id).take(20).toList();
+                if (items.isEmpty) return const SizedBox();
+                return _ContentRow<SeriesItem>(
+                  title: cat.name,
+                  items: items,
+                  imageBuilder: (s) => s.cover,
+                  nameBuilder: (s) => s.name,
+                  onFocus: (_) {},
+                  onTap: (_) {},
+                );
+              }),
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
-        // Continue Watching
-        if (_history.isNotEmpty)
-          _ContinueWatchingRow(history: _history, creds: widget.creds),
-        // Movie rows
-        ...widget.vodCats.take(4).map((cat) {
-          final items = widget.vods.where((v) => v.categoryId == cat.id).take(20).toList();
-          if (items.isEmpty) return const SizedBox();
-          return _ContentRow<VodItem>(
-            title: cat.name,
-            items: items,
-            imageBuilder: (v) => v.poster,
-            nameBuilder: (v) => v.name,
-            onFocus: (v) => _updateHero(v),
-            onTap: (v) => Navigator.push(context, _fadeRoute(MovieDetailScreen(item: v, creds: widget.creds))),
-          );
-        }),
-        // Series rows
-        ...widget.seriesCats.take(3).map((cat) {
-          final items = widget.series.where((s) => s.categoryId == cat.id).take(20).toList();
-          if (items.isEmpty) return const SizedBox();
-          return _ContentRow<SeriesItem>(
-            title: cat.name,
-            items: items,
-            imageBuilder: (s) => s.cover,
-            nameBuilder: (s) => s.name,
-            onFocus: (_) {},
-            onTap: (_) {},
-          );
-        }),
-        const SizedBox(height: 32),
       ],
     );
   }
 }
 
-// =================== HERO BANNER ===================
+// =================== DYNAMIC HERO ===================
 
-class _HeroBanner extends StatelessWidget {
+class _DynamicHero extends StatelessWidget {
   final VodItem? vod;
   final TmdbMovie? tmdb;
+  final bool loading;
   final XtreamCredentials creds;
 
-  const _HeroBanner({this.vod, this.tmdb, required this.creds});
+  const _DynamicHero({this.vod, this.tmdb, required this.loading, required this.creds});
 
   @override
   Widget build(BuildContext context) {
@@ -229,82 +232,106 @@ class _HeroBanner extends StatelessWidget {
     final rating = tmdb?.ratingStr ?? '';
 
     return SizedBox(
-      height: 320,
+      height: 280,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Backdrop on right
-          if (backdropUrl != null)
-            CachedNetworkImage(imageUrl: backdropUrl, fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(color: const Color(0xFF1A1A1A)))
-          else
-            Container(color: const Color(0xFF1A1A1A)),
-          // Gradient left
+          // Backdrop with animated switch
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            child: backdropUrl != null
+                ? CachedNetworkImage(
+                    key: ValueKey(backdropUrl),
+                    imageUrl: backdropUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Container(color: const Color(0xFF1A1A1A)),
+                  )
+                : Container(key: const ValueKey('empty'), color: const Color(0xFF1A1A1A)),
+          ),
+          // Left gradient
           Container(decoration: const BoxDecoration(gradient: LinearGradient(
             begin: Alignment.centerLeft, end: Alignment.centerRight,
             colors: [Color(0xFF141414), Color(0xCC141414), Colors.transparent],
-            stops: [0.0, 0.45, 0.75],
+            stops: [0.0, 0.4, 0.7],
           ))),
-          // Gradient bottom
+          // Bottom gradient
           Container(decoration: const BoxDecoration(gradient: LinearGradient(
             begin: Alignment.bottomCenter, end: Alignment.topCenter,
             colors: [Color(0xFF141414), Colors.transparent],
-            stops: [0.0, 0.4],
+            stops: [0.0, 0.35],
           ))),
-          // Content left side
+          // Content — animated switch
           Positioned(
-            left: 32, top: 0, bottom: 0,
-            width: MediaQuery.of(context).size.width * 0.45,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (title.isNotEmpty)
-                  Text(title,
-                    style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, height: 1.2),
-                    maxLines: 2, overflow: TextOverflow.ellipsis,
-                  ),
-                const SizedBox(height: 6),
-                Row(children: [
-                  if (year.isNotEmpty) ...[
-                    Text(year, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                    const SizedBox(width: 10),
-                  ],
-                  if (rating.isNotEmpty) ...[
-                    const Icon(Icons.star, color: Color(0xFFFFD700), size: 12),
-                    const SizedBox(width: 3),
-                    Text(rating, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                  ],
-                ]),
-                if (overview.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(overview,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
-                    maxLines: 2, overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 16),
-                if (vod != null)
+            left: 28, top: 0, bottom: 0,
+            width: MediaQuery.of(context).size.width * 0.44,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(
+                  position: Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(anim),
+                  child: child,
+                ),
+              ),
+              child: Column(
+                key: ValueKey(title),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (title.isNotEmpty)
+                    Text(title,
+                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, height: 1.2),
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                    ),
+                  const SizedBox(height: 5),
                   Row(children: [
-                    _HeroBtn(
-                      icon: Icons.play_arrow_rounded,
-                      label: 'تشغيل',
-                      primary: true,
-                      onTap: () => Navigator.push(context, _fadeRoute(
-                        PlayerScreen(id: vod!.id, title: vod!.name, url: vod!.streamUrl(creds), poster: vod!.poster),
-                      )),
-                    ),
-                    const SizedBox(width: 10),
-                    _HeroBtn(
-                      icon: Icons.info_outline_rounded,
-                      label: 'تفاصيل',
-                      primary: false,
-                      onTap: () => Navigator.push(context, _fadeRoute(MovieDetailScreen(item: vod!, creds: creds))),
-                    ),
+                    if (year.isNotEmpty) ...[
+                      Text(year, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                      const SizedBox(width: 10),
+                    ],
+                    if (rating.isNotEmpty) ...[
+                      const Icon(Icons.star, color: Color(0xFFFFD700), size: 11),
+                      const SizedBox(width: 3),
+                      Text(rating, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                    ],
                   ]),
-              ],
+                  if (overview.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(overview,
+                      style: const TextStyle(color: Colors.white45, fontSize: 11, height: 1.5),
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  if (vod != null)
+                    Row(children: [
+                      _HeroBtn(
+                        icon: Icons.play_arrow_rounded,
+                        label: 'تشغيل',
+                        primary: true,
+                        onTap: () => Navigator.push(context, _fadeRoute(
+                          PlayerScreen(id: vod!.id, title: vod!.name, url: vod!.streamUrl(creds), poster: vod!.poster),
+                        )),
+                      ),
+                      const SizedBox(width: 8),
+                      _HeroBtn(
+                        icon: Icons.info_outline_rounded,
+                        label: 'تفاصيل',
+                        primary: false,
+                        onTap: () => Navigator.push(context, _fadeRoute(MovieDetailScreen(item: vod!, creds: creds))),
+                      ),
+                    ]),
+                ],
+              ),
             ),
           ),
+          // Loading indicator
+          if (loading)
+            const Positioned(top: 16, right: 16,
+              child: SizedBox(width: 14, height: 14,
+                child: CircularProgressIndicator(color: Mot9Theme.accentRed, strokeWidth: 1.5))),
         ],
       ),
     );
@@ -348,24 +375,30 @@ class _HeroBtnState extends State<_HeroBtn> {
       },
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-          decoration: BoxDecoration(
-            color: widget.primary
-                ? (_focused ? Colors.white : Colors.white.withOpacity(0.9))
-                : (_focused ? Colors.white24 : Colors.white12),
-            borderRadius: BorderRadius.circular(5),
-            border: !widget.primary && _focused ? Border.all(color: Colors.white54) : null,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 1.0, end: _focused ? 1.05 : 1.0),
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutExpo,
+          builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: widget.primary
+                  ? (_focused ? Colors.white : Colors.white.withOpacity(0.88))
+                  : (_focused ? Colors.white20 : Colors.white10),
+              borderRadius: BorderRadius.circular(4),
+              border: !widget.primary ? Border.all(color: _focused ? Colors.white38 : Colors.transparent) : null,
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(widget.icon, color: widget.primary ? Colors.black : Colors.white, size: 16),
+              const SizedBox(width: 5),
+              Text(widget.label, style: TextStyle(
+                color: widget.primary ? Colors.black : Colors.white,
+                fontSize: 12, fontWeight: FontWeight.bold,
+              )),
+            ]),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(widget.icon, color: widget.primary ? Colors.black : Colors.white, size: 18),
-            const SizedBox(width: 6),
-            Text(widget.label, style: TextStyle(
-              color: widget.primary ? Colors.black : Colors.white,
-              fontSize: 13, fontWeight: FontWeight.bold,
-            )),
-          ]),
         ),
       ),
     );
@@ -376,9 +409,7 @@ class _HeroBtnState extends State<_HeroBtn> {
 
 class _ContinueWatchingRow extends StatelessWidget {
   final List<WatchEntry> history;
-  final XtreamCredentials creds;
-
-  const _ContinueWatchingRow({required this.history, required this.creds});
+  const _ContinueWatchingRow({required this.history});
 
   @override
   Widget build(BuildContext context) {
@@ -386,11 +417,11 @@ class _ContinueWatchingRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, 10),
-          child: Text('متابعة المشاهدة', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+          padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
+          child: Text('متابعة المشاهدة', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
         ),
         SizedBox(
-          height: 110,
+          height: 100,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -398,7 +429,7 @@ class _ContinueWatchingRow extends StatelessWidget {
             itemBuilder: (_, i) => _ContinueCard(entry: history[i]),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
       ],
     );
   }
@@ -431,78 +462,73 @@ class _ContinueCardState extends State<_ContinueCard> {
       focusNode: _focus,
       onKeyEvent: (_, e) {
         if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) {
-          Navigator.push(context, _fadeRoute(PlayerScreen(
-            id: widget.entry.id,
-            title: widget.entry.name,
-            url: widget.entry.url,
-            poster: widget.entry.poster,
-            startPositionMs: widget.entry.positionMs,
-          )));
+          _open(context);
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       },
       child: GestureDetector(
-        onTap: () => Navigator.push(context, _fadeRoute(PlayerScreen(
-          id: widget.entry.id,
-          title: widget.entry.name,
-          url: widget.entry.url,
-          poster: widget.entry.poster,
-          startPositionMs: widget.entry.positionMs,
-        ))),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          width: 180,
-          margin: EdgeInsets.only(right: 10, top: _focused ? 0 : 6, bottom: _focused ? 0 : 6),
-          transform: _focused ? (Matrix4.identity()..scale(1.05)) : Matrix4.identity(),
-          transformAlignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: _focused ? Mot9Theme.accentRed : Colors.transparent, width: 2),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
+        onTap: () => _open(context),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 1.0, end: _focused ? 1.08 : 1.0),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutExpo,
+          builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+          child: Container(
+            width: 170,
+            margin: const EdgeInsets.only(right: 10, top: 4, bottom: 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: _focused ? Mot9Theme.accentRed : Colors.transparent, width: 2),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: Stack(fit: StackFit.expand, children: [
                 widget.entry.poster != null
                     ? CachedNetworkImage(imageUrl: widget.entry.poster!, fit: BoxFit.cover,
                         errorWidget: (_, __, ___) => Container(color: Mot9Theme.cardColor))
                     : Container(color: Mot9Theme.cardColor),
-                // Progress bar
-                Positioned(
-                  bottom: 0, left: 0, right: 0,
+                Positioned(bottom: 0, left: 0, right: 0,
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Container(
-                      padding: const EdgeInsets.fromLTRB(6, 12, 6, 4),
+                      padding: const EdgeInsets.fromLTRB(6, 10, 6, 3),
                       decoration: const BoxDecoration(gradient: LinearGradient(
                         begin: Alignment.topCenter, end: Alignment.bottomCenter,
                         colors: [Colors.transparent, Colors.black87],
                       )),
                       child: Text(widget.entry.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
                     ),
                     LinearProgressIndicator(
                       value: widget.entry.progress,
                       backgroundColor: Colors.white24,
                       color: Mot9Theme.accentRed,
-                      minHeight: 3,
+                      minHeight: 2.5,
                     ),
                   ]),
                 ),
-              ],
+              ]),
             ),
           ),
         ),
       ),
     );
   }
+
+  void _open(BuildContext context) {
+    Navigator.push(context, _fadeRoute(PlayerScreen(
+      id: widget.entry.id,
+      title: widget.entry.name,
+      url: widget.entry.url,
+      poster: widget.entry.poster,
+      startPositionMs: widget.entry.positionMs,
+    )));
+  }
 }
 
 // =================== CONTENT ROW ===================
 
-class _ContentRow<T> extends StatefulWidget {
+class _ContentRow<T> extends StatelessWidget {
   final String title;
   final List<T> items;
   final String? Function(T) imageBuilder;
@@ -511,44 +537,35 @@ class _ContentRow<T> extends StatefulWidget {
   final void Function(T) onTap;
 
   const _ContentRow({
-    required this.title,
-    required this.items,
-    required this.imageBuilder,
-    required this.nameBuilder,
-    required this.onFocus,
-    required this.onTap,
+    required this.title, required this.items,
+    required this.imageBuilder, required this.nameBuilder,
+    required this.onFocus, required this.onTap,
   });
 
-  @override
-  State<_ContentRow<T>> createState() => _ContentRowState<T>();
-}
-
-class _ContentRowState<T> extends State<_ContentRow<T>> {
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-          child: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+          child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
         ),
         SizedBox(
-          height: 160,
+          height: 155,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: widget.items.length,
+            itemCount: items.length,
             itemBuilder: (_, i) => _PosterCard<T>(
-              item: widget.items[i],
-              image: widget.imageBuilder(widget.items[i]),
-              name: widget.nameBuilder(widget.items[i]),
-              onFocus: () => widget.onFocus(widget.items[i]),
-              onTap: () => widget.onTap(widget.items[i]),
+              item: items[i],
+              image: imageBuilder(items[i]),
+              name: nameBuilder(items[i]),
+              onFocus: () => onFocus(items[i]),
+              onTap: () => onTap(items[i]),
             ),
           ),
         ),
-        const SizedBox(height: 4),
       ],
     );
   }
@@ -570,6 +587,10 @@ class _PosterCard<T> extends StatefulWidget {
 class _PosterCardState<T> extends State<_PosterCard<T>> {
   bool _focused = false;
   final _focus = FocusNode();
+
+  // Fixed dimensions
+  static const double _w = 96.0;
+  static const double _h = 144.0;
 
   @override
   void initState() {
@@ -596,40 +617,48 @@ class _PosterCardState<T> extends State<_PosterCard<T>> {
       },
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          width: 100,
-          margin: EdgeInsets.only(right: 8, top: _focused ? 0 : 8, bottom: _focused ? 0 : 8),
-          transform: _focused ? (Matrix4.identity()..scale(1.1)) : Matrix4.identity(),
-          transformAlignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: _focused ? Mot9Theme.accentRed : Colors.transparent, width: 2),
-            boxShadow: _focused ? [const BoxShadow(color: Colors.black87, blurRadius: 16, spreadRadius: 2)] : [],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                widget.image != null
-                    ? CachedNetworkImage(imageUrl: widget.image!, fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => _placeholder())
-                    : _placeholder(),
-                Positioned(
-                  bottom: 0, left: 0, right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(5, 14, 5, 5),
-                    decoration: const BoxDecoration(gradient: LinearGradient(
-                      begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black87],
-                    )),
-                    child: Text(widget.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 1.0, end: _focused ? 1.1 : 1.0),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutExpo,
+          builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+          child: Container(
+            width: _w,
+            height: _h,
+            margin: const EdgeInsets.only(right: 8, top: 4, bottom: 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _focused ? Mot9Theme.accentRed : Colors.transparent,
+                width: 2,
+              ),
+              boxShadow: _focused
+                  ? [const BoxShadow(color: Colors.black87, blurRadius: 14, spreadRadius: 2)]
+                  : [],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  widget.image != null
+                      ? CachedNetworkImage(imageUrl: widget.image!, fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => _placeholder())
+                      : _placeholder(),
+                  Positioned(
+                    bottom: 0, left: 0, right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(5, 12, 5, 5),
+                      decoration: const BoxDecoration(gradient: LinearGradient(
+                        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Colors.black87],
+                      )),
+                      child: Text(widget.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -638,13 +667,5 @@ class _PosterCardState<T> extends State<_PosterCard<T>> {
   }
 
   Widget _placeholder() => Container(color: Mot9Theme.cardColor,
-      child: const Icon(Icons.movie, color: Colors.white12, size: 28));
+      child: const Icon(Icons.movie, color: Colors.white12, size: 24));
 }
-
-// =================== HELPERS ===================
-
-PageRouteBuilder _fadeRoute(Widget page) => PageRouteBuilder(
-  pageBuilder: (_, __, ___) => page,
-  transitionsBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
-  transitionDuration: const Duration(milliseconds: 250),
-);
