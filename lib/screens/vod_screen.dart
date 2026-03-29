@@ -58,7 +58,7 @@ class _VodScreenState extends State<VodScreen> {
     return Row(
       children: [
         // Sidebar
-        SizedBox(
+        Container(
           width: 200,
           color: const Color(0xFF0D0D0D),
           child: Column(children: [
@@ -80,7 +80,7 @@ class _VodScreenState extends State<VodScreen> {
             ),
             Expanded(
               child: FocusTraversalGroup(
-                policy: const WidgetOrderTraversalPolicy(),
+                policy: WidgetOrderTraversalPolicy(),
                 child: ValueListenableBuilder<int>(
                   valueListenable: _catNotifier,
                   builder: (_, sel, __) => ListView.builder(
@@ -107,7 +107,7 @@ class _VodScreenState extends State<VodScreen> {
                 final items = _filtered(sel, search);
                 if (items.isEmpty) return const Center(child: Text('لا توجد نتائج', style: TextStyle(color: Colors.white38)));
                 return FocusTraversalGroup(
-                  policy: const WidgetOrderTraversalPolicy(),
+                  policy: WidgetOrderTraversalPolicy(),
                   child: GridView.builder(
                     padding: const EdgeInsets.all(20),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

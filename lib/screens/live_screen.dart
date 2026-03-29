@@ -51,7 +51,7 @@ class _LiveScreenState extends State<LiveScreen> {
         SizedBox(
           width: 200,
           child: FocusTraversalGroup(
-            policy: const WidgetOrderTraversalPolicy(),
+            policy: WidgetOrderTraversalPolicy(),
             child: ValueListenableBuilder<int>(
               valueListenable: _catNotifier,
               builder: (_, sel, __) => ListView.builder(
@@ -74,7 +74,7 @@ class _LiveScreenState extends State<LiveScreen> {
             builder: (_, sel, __) {
               final channels = _filtered(sel);
               return FocusTraversalGroup(
-                policy: const WidgetOrderTraversalPolicy(),
+                policy: WidgetOrderTraversalPolicy(),
                 child: GridView.builder(
                   padding: const EdgeInsets.all(20),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

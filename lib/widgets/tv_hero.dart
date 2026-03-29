@@ -201,7 +201,7 @@ class _HeroContent extends StatelessWidget {
         const SizedBox(height: 14),
         if (onPlay != null)
           FocusTraversalGroup(
-            policy: const WidgetOrderTraversalPolicy(),
+            policy: WidgetOrderTraversalPolicy(),
             child: Row(children: [
               _HeroActionBtn(label: 'تشغيل', icon: Icons.play_arrow_rounded, primary: true, onTap: onPlay!),
               const SizedBox(width: 10),

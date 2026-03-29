@@ -75,7 +75,7 @@ class _TvRowState<T> extends State<TvRow<T>> {
         SizedBox(
           height: widget.cardHeight + 16,
           child: FocusTraversalGroup(
-            policy: const WidgetOrderTraversalPolicy(),
+            policy: WidgetOrderTraversalPolicy(),
             child: ListView.builder(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,

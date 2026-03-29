@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/models.dart';
@@ -254,7 +255,7 @@ class _ForYouPageState extends State<_ForYouPage> {
           SizedBox(
             height: 96,
             child: FocusTraversalGroup(
-              policy: const WidgetOrderTraversalPolicy(),
+              policy: WidgetOrderTraversalPolicy(),
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 24),

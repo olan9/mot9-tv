@@ -29,7 +29,7 @@ class TopNav extends StatelessWidget {
         ),
       ),
       child: FocusTraversalGroup(
-        policy: const WidgetOrderTraversalPolicy(),
+        policy: WidgetOrderTraversalPolicy(),
         child: Row(
           children: [
             // Logo
