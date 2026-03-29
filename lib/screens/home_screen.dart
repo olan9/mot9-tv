@@ -8,6 +8,7 @@ import '../widgets/hero_banner.dart';
 import 'live_screen.dart';
 import 'vod_screen.dart';
 import 'login_screen.dart';
+import 'player_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,14 +22,23 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
   late XtreamService _service;
-
-  final _tabs = ['🏠 الرئيسية', '📺 بث مباشر', '🎬 أفلام'];
   final _navFocusNodes = List.generate(4, (_) => FocusNode());
 
   @override
   void initState() {
     super.initState();
     _service = XtreamService(widget.creds);
+    for (var node in _navFocusNodes) {
+      node.addListener(() => setState(() {}));
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var node in _navFocusNodes) {
+      node.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _logout() async {
@@ -65,20 +75,17 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 48),
       child: Row(
         children: [
-          // Logo
           RichText(
-            text: const TextSpan(
-              children: [
-                TextSpan(text: 'mot', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: -1)),
-                TextSpan(text: '⁹', style: TextStyle(color: Mot9Theme.accentRed, fontSize: 21, fontWeight: FontWeight.bold)),
-              ],
-            ),
+            text: const TextSpan(children: [
+              TextSpan(text: 'mot', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: -1)),
+              TextSpan(text: '⁹', style: TextStyle(color: Mot9Theme.accentRed, fontSize: 21, fontWeight: FontWeight.bold)),
+            ]),
           ),
           const SizedBox(width: 48),
-          // Tabs
-          ..._tabs.asMap().entries.map((e) => _buildNavItem(e.key, e.value)),
+          _buildNavItem(0, '🏠 الرئيسية'),
+          _buildNavItem(1, '📺 بث مباشر'),
+          _buildNavItem(2, '🎬 أفلام'),
           const Spacer(),
-          // Logout
           _buildNavAction(3, Icons.logout, _logout),
         ],
       ),
@@ -87,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNavItem(int index, String label) {
     final selected = _tab == index;
+    final focused = _navFocusNodes[index].hasFocus;
     return Focus(
       focusNode: _navFocusNodes[index],
       onKeyEvent: (_, event) {
@@ -96,35 +104,33 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         return KeyEventResult.ignored;
       },
-      child: Builder(builder: (ctx) {
-        final focused = Focus.of(ctx).hasFocus;
-        return GestureDetector(
-          onTap: () => setState(() => _tab = index),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            margin: const EdgeInsets.only(right: 4),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(
-                color: selected ? Mot9Theme.accentRed : (focused ? Colors.white54 : Colors.transparent),
-                width: 2,
-              )),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : (focused ? Colors.white : Colors.white60),
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 15,
-              ),
+      child: GestureDetector(
+        onTap: () => setState(() => _tab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(
+              color: selected ? Mot9Theme.accentRed : (focused ? Colors.white54 : Colors.transparent),
+              width: 2,
+            )),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : (focused ? Colors.white : Colors.white60),
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 15,
             ),
           ),
-        );
-      }),
+        ),
+      ),
     );
   }
 
   Widget _buildNavAction(int index, IconData icon, VoidCallback onTap) {
+    final focused = _navFocusNodes[index].hasFocus;
     return Focus(
       focusNode: _navFocusNodes[index],
       onKeyEvent: (_, event) {
@@ -134,21 +140,18 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         return KeyEventResult.ignored;
       },
-      child: Builder(builder: (ctx) {
-        final focused = Focus.of(ctx).hasFocus;
-        return GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: focused ? Colors.white12 : Colors.transparent,
-              borderRadius: BorderRadius.circular(50),
-            ),
-            child: Icon(icon, color: Colors.white70, size: 22),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: focused ? Colors.white12 : Colors.transparent,
+            borderRadius: BorderRadius.circular(50),
           ),
-        );
-      }),
+          child: Icon(icon, color: Colors.white70, size: 22),
+        ),
+      ),
     );
   }
 
@@ -218,11 +221,9 @@ class _HomeTabState extends State<_HomeTab> {
 
     return ListView(
       children: [
-        // Hero banner - first channel with logo
         if (_liveChannels.isNotEmpty)
           HeroBanner(channel: _liveChannels.first, creds: widget.creds),
         const SizedBox(height: 24),
-        // Live rows per category
         ..._liveCategories.take(4).map((cat) {
           final channels = _liveChannels.where((c) => c.categoryId == cat.id).toList();
           if (channels.isEmpty) return const SizedBox();
@@ -232,12 +233,11 @@ class _HomeTabState extends State<_HomeTab> {
             imageBuilder: (c) => c.logo,
             nameBuilder: (c) => c.name,
             onTap: (c) => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => PlayerPlaceholder(title: c.name, url: c.streamUrl(widget.creds)),
+              builder: (_) => PlayerScreen(title: c.name, url: c.streamUrl(widget.creds)),
             )),
           );
         }),
         const SizedBox(height: 8),
-        // VOD rows
         ..._vodCategories.take(4).map((cat) {
           final vods = _vodItems.where((v) => v.categoryId == cat.id).toList();
           if (vods.isEmpty) return const SizedBox();
@@ -247,7 +247,7 @@ class _HomeTabState extends State<_HomeTab> {
             imageBuilder: (v) => v.poster,
             nameBuilder: (v) => v.name,
             onTap: (v) => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => PlayerPlaceholder(title: v.name, url: v.streamUrl(widget.creds)),
+              builder: (_) => PlayerScreen(title: v.name, url: v.streamUrl(widget.creds)),
             )),
           );
         }),
@@ -255,16 +255,4 @@ class _HomeTabState extends State<_HomeTab> {
       ],
     );
   }
-}
-
-class PlayerPlaceholder extends StatelessWidget {
-  final String title;
-  final String url;
-  const PlayerPlaceholder({super.key, required this.title, required this.url});
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.black,
-    body: Center(child: Text('▶ $title\n$url', style: const TextStyle(color: Colors.white), textAlign: TextAlign.center)),
-  );
 }
