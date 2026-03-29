@@ -18,26 +18,31 @@ class SeriesScreen extends StatefulWidget {
 }
 
 class _SeriesScreenState extends State<SeriesScreen> {
-  int _selectedCat = 0;
-  String _search = '';
+  final _catNotifier = ValueNotifier<int>(0);
   final _searchCtrl = TextEditingController();
+  final _searchNotifier = ValueNotifier<String>('');
   late List<Category> _cats;
 
   @override
   void initState() {
     super.initState();
     _cats = [Category(id: '', name: 'الكل'), ...widget.categories];
+    _searchCtrl.addListener(() => _searchNotifier.value = _searchCtrl.text);
   }
 
-  List<SeriesItem> get _filtered {
+  @override
+  void dispose() {
+    _catNotifier.dispose();
+    _searchNotifier.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<SeriesItem> _filtered(int catIdx, String search) {
     var items = widget.series;
-    final cat = _cats.isEmpty ? null : _cats[_selectedCat];
-    if (cat != null && cat.id.isNotEmpty) {
-      items = items.where((s) => s.categoryId == cat.id).toList();
-    }
-    if (_search.isNotEmpty) {
-      items = items.where((s) => s.name.toLowerCase().contains(_search.toLowerCase())).toList();
-    }
+    final cat = _cats[catIdx];
+    if (cat.id.isNotEmpty) items = items.where((s) => s.categoryId == cat.id).toList();
+    if (search.isNotEmpty) items = items.where((s) => s.name.toLowerCase().contains(search.toLowerCase())).toList();
     return items;
   }
 
@@ -45,79 +50,96 @@ class _SeriesScreenState extends State<SeriesScreen> {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 220,
+        SizedBox(
+          width: 200,
           color: const Color(0xFF0D0D0D),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextField(
-                  controller: _searchCtrl,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  onChanged: (v) => setState(() => _search = v),
-                  decoration: InputDecoration(
-                    hintText: 'بحث...',
-                    hintStyle: const TextStyle(color: Colors.white38),
-                    prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18),
-                    filled: true,
-                    fillColor: const Color(0xFF222222),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                controller: _searchCtrl,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'بحث...',
+                  hintStyle: const TextStyle(color: Colors.white30),
+                  prefixIcon: const Icon(Icons.search, color: Colors.white30, size: 16),
+                  filled: true,
+                  fillColor: const Color(0xFF1E1E1E),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ),
+            Expanded(
+              child: FocusTraversalGroup(
+                policy: const WidgetOrderTraversalPolicy(),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _catNotifier,
+                  builder: (_, sel, __) => ListView.builder(
+                    itemCount: _cats.length,
+                    itemExtent: 44,
+                    itemBuilder: (_, i) => _CatItem(
+                      label: _cats[i].name,
+                      selected: sel == i,
+                      onTap: () => _catNotifier.value = i,
+                    ),
                   ),
                 ),
               ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _cats.length,
-                  itemBuilder: (_, i) => _SideItem(
-                    label: _cats[i].name,
-                    selected: _selectedCat == i,
-                    onTap: () => setState(() => _selectedCat = i),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ]),
         ),
         Expanded(
-          child: _filtered.isEmpty
-              ? const Center(child: Text('لا توجد نتائج', style: TextStyle(color: Colors.white38)))
-              : GridView.builder(
-                  padding: const EdgeInsets.all(24),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 5,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: 0.68,
+          child: ValueListenableBuilder<int>(
+            valueListenable: _catNotifier,
+            builder: (_, sel, __) => ValueListenableBuilder<String>(
+              valueListenable: _searchNotifier,
+              builder: (_, search, __) {
+                final items = _filtered(sel, search);
+                if (items.isEmpty) return const Center(child: Text('لا توجد نتائج', style: TextStyle(color: Colors.white38)));
+                return FocusTraversalGroup(
+                  policy: const WidgetOrderTraversalPolicy(),
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(20),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 5,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.68,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (_, i) => _SeriesCard(item: items[i], onTap: () {}),
                   ),
-                  itemCount: _filtered.length,
-                  itemBuilder: (_, i) => _SeriesCard(item: _filtered[i], onTap: () {}),
-                ),
+                );
+              },
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-class _SideItem extends StatefulWidget {
+class _CatItem extends StatefulWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  const _SideItem({required this.label, required this.selected, required this.onTap});
+  const _CatItem({required this.label, required this.selected, required this.onTap});
 
   @override
-  State<_SideItem> createState() => _SideItemState();
+  State<_CatItem> createState() => _CatItemState();
 }
 
-class _SideItemState extends State<_SideItem> {
-  bool _focused = false;
+class _CatItemState extends State<_CatItem> {
   final _focus = FocusNode();
+  bool _focused = false;
 
   @override
   void initState() {
     super.initState();
-    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+    _focus.addListener(() {
+      if (_focused != _focus.hasFocus) setState(() => _focused = _focus.hasFocus);
+    });
   }
 
   @override
@@ -137,17 +159,17 @@ class _SideItemState extends State<_SideItem> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+          duration: const Duration(milliseconds: 130),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: widget.selected ? Mot9Theme.accentRed.withOpacity(0.15) : (_focused ? Colors.white10 : Colors.transparent),
+            color: widget.selected ? Mot9Theme.accentRed.withOpacity(0.12) : (_focused ? Colors.white10 : Colors.transparent),
             border: Border(left: BorderSide(color: widget.selected ? Mot9Theme.accentRed : Colors.transparent, width: 3)),
           ),
-          child: Text(widget.label, style: TextStyle(
-            color: widget.selected ? Colors.white : (_focused ? Colors.white : Colors.white60),
-            fontSize: 14,
-            fontWeight: widget.selected ? FontWeight.bold : FontWeight.normal,
-          )),
+          child: Text(widget.label, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: widget.selected ? Colors.white : (_focused ? Colors.white : Colors.white54),
+                fontSize: 13, fontWeight: widget.selected ? FontWeight.bold : FontWeight.normal,
+              )),
         ),
       ),
     );
@@ -163,14 +185,19 @@ class _SeriesCard extends StatefulWidget {
   State<_SeriesCard> createState() => _SeriesCardState();
 }
 
-class _SeriesCardState extends State<_SeriesCard> {
-  bool _focused = false;
+class _SeriesCardState extends State<_SeriesCard> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final _focus = FocusNode();
+  bool _focused = false;
 
   @override
   void initState() {
     super.initState();
-    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+    _focus.addListener(() {
+      if (_focused != _focus.hasFocus) setState(() => _focused = _focus.hasFocus);
+    });
   }
 
   @override
@@ -178,54 +205,46 @@ class _SeriesCardState extends State<_SeriesCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focus,
-      onKeyEvent: (_, e) {
-        if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) {
-          widget.onTap();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          transform: _focused ? (Matrix4.identity()..scale(1.06)) : Matrix4.identity(),
-          transformAlignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: _focused ? Mot9Theme.accentRed : Colors.transparent, width: 2),
-            boxShadow: _focused ? [const BoxShadow(color: Colors.black54, blurRadius: 16)] : [],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
+    super.build(context);
+    return RepaintBoundary(
+      child: Focus(
+        focusNode: _focus,
+        onKeyEvent: (_, e) {
+          if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.select) {
+            widget.onTap();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            transform: _focused ? (Matrix4.identity()..scale(1.06)) : Matrix4.identity(),
+            transformAlignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _focused ? Mot9Theme.accentRed : Colors.transparent, width: 2),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: Stack(fit: StackFit.expand, children: [
                 widget.item.cover != null
                     ? CachedNetworkImage(imageUrl: widget.item.cover!, fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(color: Mot9Theme.cardColor, child: const Icon(Icons.tv, color: Colors.white24, size: 40)))
-                    : Container(color: Mot9Theme.cardColor, child: const Icon(Icons.tv, color: Colors.white24, size: 40)),
-                Positioned(
-                  bottom: 0, left: 0, right: 0,
+                        errorWidget: (_, __, ___) => const ColoredBox(color: Mot9Theme.cardColor, child: Center(child: Icon(Icons.tv, color: Colors.white12, size: 32))))
+                    : const ColoredBox(color: Mot9Theme.cardColor, child: Center(child: Icon(Icons.tv, color: Colors.white12, size: 32))),
+                Positioned(bottom: 0, left: 0, right: 0,
                   child: Container(
-                    padding: const EdgeInsets.fromLTRB(8, 24, 8, 8),
+                    padding: const EdgeInsets.fromLTRB(6, 16, 6, 6),
                     decoration: const BoxDecoration(gradient: LinearGradient(
                       begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black87],
+                      colors: [Colors.transparent, Color(0xDD000000)],
                     )),
                     child: Text(widget.item.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
                   ),
                 ),
-                if (_focused)
-                  Center(child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Mot9Theme.accentRed.withOpacity(0.9), shape: BoxShape.circle),
-                    child: const Icon(Icons.play_arrow, color: Colors.white, size: 32),
-                  )),
-              ],
+              ]),
             ),
           ),
         ),
