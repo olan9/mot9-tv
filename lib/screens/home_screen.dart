@@ -300,7 +300,7 @@ class _DynamicHero extends StatelessWidget {
                   if (overview.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(overview,
-                      style: const TextStyle(color: Colors.white45, fontSize: 11, height: 1.5),
+                      style: const TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11, height: 1.5),
                       maxLines: 2, overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -386,7 +386,7 @@ class _HeroBtnState extends State<_HeroBtn> {
             decoration: BoxDecoration(
               color: widget.primary
                   ? (_focused ? Colors.white : Colors.white.withOpacity(0.88))
-                  : (_focused ? Colors.white20 : Colors.white10),
+                  : (_focused ? Colors.white.withOpacity(0.2) : Colors.white.withOpacity(0.1)),
               borderRadius: BorderRadius.circular(4),
               border: !widget.primary ? Border.all(color: _focused ? Colors.white38 : Colors.transparent) : null,
             ),
