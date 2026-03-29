@@ -74,7 +74,7 @@ class _LiveScreenState extends State<LiveScreen> {
             itemBuilder: (_, i) => _ChannelCard(
               channel: _filtered[i],
               onTap: () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => PlayerScreen(title: _filtered[i].name, url: _filtered[i].streamUrl(widget.creds)),
+                builder: (_) => PlayerScreen(id: _filtered[i].id, title: _filtered[i].name, url: _filtered[i].streamUrl(widget.creds)),
               )),
             ),
           ),

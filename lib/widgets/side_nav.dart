@@ -13,30 +13,28 @@ class SideNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 80,
+      width: 64,
       color: const Color(0xFF0A0A0A),
       child: Column(
         children: [
-          const SizedBox(height: 24),
-          // Logo
+          const SizedBox(height: 20),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: RichText(
-              textAlign: TextAlign.center,
               text: const TextSpan(children: [
-                TextSpan(text: 'm', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                TextSpan(text: '9', style: TextStyle(color: Mot9Theme.accentRed, fontSize: 12, fontWeight: FontWeight.bold)),
+                TextSpan(text: 'm', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                TextSpan(text: '9', style: TextStyle(color: Mot9Theme.accentRed, fontSize: 10, fontWeight: FontWeight.bold)),
               ]),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           _NavBtn(icon: Icons.home_rounded, item: NavItem.home, selected: selected, onSelect: onSelect),
           _NavBtn(icon: Icons.movie_rounded, item: NavItem.movies, selected: selected, onSelect: onSelect),
           _NavBtn(icon: Icons.tv_rounded, item: NavItem.series, selected: selected, onSelect: onSelect),
           _NavBtn(icon: Icons.live_tv_rounded, item: NavItem.live, selected: selected, onSelect: onSelect),
           const Spacer(),
           _NavBtn(icon: Icons.settings_rounded, item: NavItem.settings, selected: selected, onSelect: onSelect),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -66,10 +64,7 @@ class _NavBtnState extends State<_NavBtn> {
   }
 
   @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
+  void dispose() { _focus.dispose(); super.dispose(); }
 
   bool get _selected => widget.selected == widget.item;
 
@@ -87,30 +82,21 @@ class _NavBtnState extends State<_NavBtn> {
       child: GestureDetector(
         onTap: () => widget.onSelect(widget.item),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: _selected
-                ? Mot9Theme.accentRed.withOpacity(0.2)
-                : _focused
-                    ? Colors.white.withOpacity(0.08)
-                    : Colors.white.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: _selected ? Mot9Theme.accentRed : Colors.transparent,
-              width: 1.5,
-            ),
+            color: _focused ? Colors.white.withOpacity(0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             widget.icon,
-            size: 24,
+            size: 22,
             color: _selected
                 ? Mot9Theme.accentRed
-                : _focused
-                    ? Colors.white
-                    : Colors.white54,
+                : _focused ? Colors.white
+                : Colors.white38,
           ),
         ),
       ),
